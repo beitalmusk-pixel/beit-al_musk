@@ -49,16 +49,28 @@ const CartUI = {
     // Promo code apply
     const promoForm = document.getElementById("cartPromoForm");
     if (promoForm) {
-      promoForm.addEventListener("submit", (e) => {
+      promoForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const input = document.getElementById("cartPromoInput");
-        const code = input ? input.value : "";
-        const res = Storage.applyPromo(code);
+        const rawCode = input ? input.value.trim() : "";
+        if (!rawCode) return;
+
+        let res = Storage.applyPromo(rawCode);
+        if (!res.success && window.SupabaseDB && SupabaseDB.isReady()) {
+          try {
+            await SupabaseDB.fetchCoupons();
+            res = Storage.applyPromo(rawCode);
+          } catch (err) {
+            console.warn("Coupon sync error:", err);
+          }
+        }
+
         if (res.success) {
-          if (window.app) window.app.showToast("⚜️ تم تطبيق كود الامتياز!", `${res.promo.label}`, "success");
+          const discountVal = res.promo.value;
+          if (window.app) window.app.showToast("⚜️ تم تطبيق كود الخصم!", `تم تفعيل خصم ${discountVal} ج.م بنجاح على طلبك!`, "success");
           if (input) input.value = "";
         } else {
-          if (window.app) window.app.showToast("تنبيه", res.message, "warning");
+          if (window.app) window.app.showToast("تنبيه بخصوص كود الخصم", res.message, "warning");
         }
       });
     }

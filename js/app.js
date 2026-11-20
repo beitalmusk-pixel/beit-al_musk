@@ -33,6 +33,7 @@ class LuxuryApp {
         if (supabaseReady) {
           await SupabaseDB.fetchSettings();
           await SupabaseDB.fetchPerfumes();
+          await SupabaseDB.fetchCoupons();
           SupabaseDB.subscribeToPerfumes((updatedProds) => {
             this.renderCollectionGrid();
             this.renderMobileBottleCarousel();

@@ -356,6 +356,138 @@ const SupabaseDB = {
     }
   },
 
+  // --- Coupons & Discount Codes Management (Fixed EGP) ---
+  async fetchCoupons() {
+    if (!this.isReady()) {
+      const settings = Storage.getSettings();
+      return Object.values(settings.promos || {});
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('coupons')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (Array.isArray(data)) {
+        const settings = Storage.getSettings();
+        settings.promos = settings.promos || {};
+        data.forEach(c => {
+          settings.promos[c.code] = {
+            id: c.id,
+            code: c.code,
+            type: c.discount_type || 'fixed',
+            value: Number(c.discount_value) || 0,
+            min_order_amount: Number(c.min_order_amount) || 0,
+            is_active: c.is_active !== false,
+            label: `خصم ${c.discount_value} ج.م (${c.code})`,
+            created_at: c.created_at
+          };
+        });
+        Storage.saveSettings(settings);
+      }
+      return data || [];
+    } catch (err) {
+      console.warn("fetchCoupons note:", err.message);
+      const settings = Storage.getSettings();
+      return Object.values(settings.promos || {});
+    }
+  },
+
+  async saveCoupon(coupon) {
+    const cleanCode = (coupon.code || "").trim().toUpperCase();
+    const value = Math.max(1, Number(coupon.discount_value || coupon.value) || 50);
+    const minOrder = Math.max(0, Number(coupon.min_order_amount) || 0);
+    const isActive = coupon.is_active !== false;
+    const label = coupon.label || `خصم ${value} ج.م (${cleanCode})`;
+
+    // 1. Save locally first for instant reactivity
+    Storage.savePromo(cleanCode, {
+      code: cleanCode,
+      type: 'fixed',
+      value: value,
+      min_order_amount: minOrder,
+      is_active: isActive,
+      label: label
+    });
+
+    if (!this.isReady()) {
+      return { success: true, cloud: false };
+    }
+
+    try {
+      const payload = {
+        code: cleanCode,
+        discount_type: 'fixed',
+        discount_value: value,
+        min_order_amount: minOrder,
+        is_active: isActive
+      };
+
+      const { data, error } = await this.client
+        .from('coupons')
+        .upsert(payload, { onConflict: 'code' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, cloud: true, data };
+    } catch (err) {
+      console.warn("saveCoupon cloud error:", err.message);
+      return { success: true, cloud: false, error: err.message };
+    }
+  },
+
+  async deleteCoupon(code) {
+    const cleanCode = (code || "").trim().toUpperCase();
+    Storage.deletePromo(cleanCode);
+
+    if (!this.isReady()) {
+      return { success: true, cloud: false };
+    }
+
+    try {
+      const { error } = await this.client
+        .from('coupons')
+        .delete()
+        .eq('code', cleanCode);
+
+      if (error) throw error;
+      return { success: true, cloud: true };
+    } catch (err) {
+      console.warn("deleteCoupon cloud error:", err.message);
+      return { success: true, cloud: false, error: err.message };
+    }
+  },
+
+  async toggleCouponStatus(code, isActive) {
+    const cleanCode = (code || "").trim().toUpperCase();
+    const settings = Storage.getSettings();
+    if (settings.promos && settings.promos[cleanCode]) {
+      settings.promos[cleanCode].is_active = !!isActive;
+      Storage.saveSettings(settings);
+    }
+
+    if (!this.isReady()) {
+      return { success: true, cloud: false };
+    }
+
+    try {
+      const { error } = await this.client
+        .from('coupons')
+        .update({ is_active: !!isActive })
+        .eq('code', cleanCode);
+
+      if (error) throw error;
+      return { success: true, cloud: true };
+    } catch (err) {
+      console.warn("toggleCouponStatus cloud error:", err.message);
+      return { success: true, cloud: false };
+    }
+  },
+
   // --- Real-Time Order & Catalog Subscriptions ---
   subscribeToOrders(callback) {
     if (!this.isReady()) return () => {};

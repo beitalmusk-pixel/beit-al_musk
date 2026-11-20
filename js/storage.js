@@ -281,11 +281,15 @@ const Storage = {
     const settings = this.getSettings();
     const cleanCode = (code || "").trim().toUpperCase();
     if (!cleanCode) return false;
+    settings.promos = settings.promos || {};
     settings.promos[cleanCode] = {
       code: cleanCode,
-      type: promoData.type || "percent",
-      value: Number(promoData.value) || 10,
-      label: promoData.label || `خصم ${cleanCode}`
+      type: promoData.type || "fixed",
+      value: Number(promoData.value) || 50,
+      min_order_amount: Number(promoData.min_order_amount) || 0,
+      is_active: promoData.is_active !== false,
+      label: promoData.label || `خصم ${Number(promoData.value) || 50} ج.م (${cleanCode})`,
+      created_at: promoData.created_at || new Date().toISOString()
     };
     return this.saveSettings(settings);
   },
@@ -293,7 +297,7 @@ const Storage = {
   deletePromo(code) {
     const settings = this.getSettings();
     const cleanCode = (code || "").trim().toUpperCase();
-    if (settings.promos[cleanCode]) {
+    if (settings.promos && settings.promos[cleanCode]) {
       delete settings.promos[cleanCode];
       return this.saveSettings(settings);
     }
@@ -313,14 +317,30 @@ const Storage = {
   applyPromo(code) {
     const cleanCode = (code || "").trim().toUpperCase();
     const settings = this.getSettings();
-    const availablePromos = settings.promos || DEFAULT_SETTINGS.promos;
-    if (availablePromos[cleanCode]) {
-      const promo = availablePromos[cleanCode];
-      localStorage.setItem(STORAGE_KEYS.PROMO, JSON.stringify(promo));
-      window.dispatchEvent(new CustomEvent("promo:updated", { detail: { promo } }));
-      return { success: true, promo };
+    const availablePromos = settings.promos || DEFAULT_SETTINGS.promos || {};
+    const promo = availablePromos[cleanCode];
+
+    if (!promo) {
+      return { success: false, message: "رمز الخصم غير صالح أو غير موجود. يرجى التأكد من الرمز المدخل." };
     }
-    return { success: false, message: "رمز الخصم غير صالح. يرجى التأكد من الرمز المدخل." };
+
+    if (promo.is_active === false) {
+      return { success: false, message: "عذراً، كود الخصم هذا معطل حالياً." };
+    }
+
+    // Check minimum order requirement
+    const cart = this.getCart();
+    const subtotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    if (promo.min_order_amount > 0 && subtotal < promo.min_order_amount) {
+      return {
+        success: false,
+        message: `يتطلب هذا الكود حداً أدنى للطلب بقيمة ${promo.min_order_amount} ج.م (قيمة سلتك الحالية ${subtotal} ج.م)`
+      };
+    }
+
+    localStorage.setItem(STORAGE_KEYS.PROMO, JSON.stringify(promo));
+    window.dispatchEvent(new CustomEvent("promo:updated", { detail: { promo } }));
+    return { success: true, promo };
   },
 
   removePromo() {
@@ -353,18 +373,22 @@ const Storage = {
       discountLabel = `${settings.globalDiscountLabel || 'خصم المتجر'} (${settings.globalDiscountPercent}%)`;
     }
 
-    // 2. Promo Code Discount
+    // 2. Promo Code Discount (Fixed EGP or Percent)
     if (promo && subtotal > 0) {
-      let promoDisc = 0;
-      if (promo.type === "percent") {
-        promoDisc = Math.round((subtotal * promo.value) / 100);
-      } else if (promo.type === "fixed") {
-        promoDisc = Math.min(subtotal, promo.value);
-      }
-      // Stacking or best-discount selection
-      if (promoDisc > discount) {
-        discount = promoDisc;
-        discountLabel = promo.label || `خصم كود ${promo.code}`;
+      const isEligible = !promo.min_order_amount || subtotal >= promo.min_order_amount;
+      if (isEligible && promo.is_active !== false) {
+        let promoDisc = 0;
+        if (promo.type === "percent") {
+          promoDisc = Math.round((subtotal * promo.value) / 100);
+        } else {
+          // fixed cash discount in EGP (خصم مباشر بالجنيه)
+          promoDisc = Math.min(subtotal, promo.value);
+        }
+        // Apply best or stack discount
+        if (promoDisc > discount) {
+          discount = promoDisc;
+          discountLabel = promo.label || `خصم ${promo.value} ج.م (${promo.code})`;
+        }
       }
     }
 

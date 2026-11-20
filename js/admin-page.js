@@ -207,6 +207,7 @@ const AdminPage = {
       if (dashboard) dashboard.classList.remove("hidden");
       this.refreshData();
       this.initOrdersListener();
+      this.loadCoupons();
       if (window.lucide) lucide.createIcons({ root: dashboard });
     } else {
       if (loginGate) loginGate.classList.remove("hidden");
@@ -380,6 +381,24 @@ const AdminPage = {
 
     document.getElementById("adminTabPaymentBtn")?.addEventListener("click", () => {
       this.switchTab("payment");
+    });
+
+    // --- Tab Switching for Coupons ---
+    document.getElementById("adminTabCouponsBtn")?.addEventListener("click", () => {
+      this.switchTab("coupons");
+    });
+
+    document.getElementById("btnRefreshCoupons")?.addEventListener("click", () => {
+      this.loadCoupons();
+    });
+
+    document.getElementById("btnGenerateCouponCode")?.addEventListener("click", () => {
+      this.generateCouponCode();
+    });
+
+    document.getElementById("adminCouponForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      this.saveCouponFromForm();
     });
 
     // --- Supabase Modal Events ---
@@ -568,9 +587,11 @@ const AdminPage = {
     const tabProdBtn = document.getElementById("adminTabProductsBtn");
     const tabOrdersBtn = document.getElementById("adminTabOrdersBtn");
     const tabPayBtn = document.getElementById("adminTabPaymentBtn");
+    const tabCouponsBtn = document.getElementById("adminTabCouponsBtn");
     const prodSection = document.getElementById("adminProductsSection");
     const ordersSection = document.getElementById("adminOrdersSection");
     const paySection = document.getElementById("adminPaymentSection");
+    const couponsSection = document.getElementById("adminCouponsSection");
 
     const activeClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-gold-500/50 bg-gold-500/20 text-gold-300 shadow-sm shadow-gold-500/10 cursor-pointer";
     const inactiveClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer";
@@ -578,10 +599,12 @@ const AdminPage = {
     if (tabProdBtn) tabProdBtn.className = tabName === "products" ? activeClass : inactiveClass;
     if (tabOrdersBtn) tabOrdersBtn.className = tabName === "orders" ? activeClass : inactiveClass;
     if (tabPayBtn) tabPayBtn.className = tabName === "payment" ? activeClass : inactiveClass;
+    if (tabCouponsBtn) tabCouponsBtn.className = tabName === "coupons" ? activeClass : inactiveClass;
 
     if (prodSection) prodSection.classList.toggle("hidden", tabName !== "products");
     if (ordersSection) ordersSection.classList.toggle("hidden", tabName !== "orders");
     if (paySection) paySection.classList.toggle("hidden", tabName !== "payment");
+    if (couponsSection) couponsSection.classList.toggle("hidden", tabName !== "coupons");
 
     if (tabName === "products") {
       this.refreshData();
@@ -589,6 +612,8 @@ const AdminPage = {
       this.loadOrders();
     } else if (tabName === "payment") {
       this.loadPaymentSettings();
+    } else if (tabName === "coupons") {
+      this.loadCoupons();
     }
 
     if (window.lucide) lucide.createIcons();
@@ -1352,6 +1377,271 @@ const AdminPage = {
     this.showToast("تم الحفظ بنجاح", `تم تحديث وحفظ بيانات عطر "${name}" في المتجر.`, "success");
   },
 
+  // =========================================================================
+  // --- إدارة كوبونات وقسائم الخصم بالجنيه المصري (Coupons in EGP) ---
+  // =========================================================================
+  async loadCoupons() {
+    let coupons = [];
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      try {
+        coupons = await SupabaseDB.fetchCoupons();
+      } catch (e) {
+        console.warn("loadCoupons fallback:", e);
+        const settings = Storage.getSettings();
+        coupons = Object.values(settings.promos || {});
+      }
+    } else {
+      const settings = Storage.getSettings();
+      coupons = Object.values(settings.promos || {});
+    }
+
+    this.renderCouponsList(coupons);
+    this.updateCouponsStats(coupons);
+  },
+
+  updateCouponsStats(coupons) {
+    const totalEl = document.getElementById("statTotalCoupons");
+    const activeEl = document.getElementById("statActiveCoupons");
+    const maxEl = document.getElementById("statMaxCouponDiscount");
+    const badge = document.getElementById("adminCouponsBadge");
+    const listCount = document.getElementById("couponsListCountText");
+
+    const total = coupons.length;
+    const active = coupons.filter(c => c.is_active !== false).length;
+    const maxDiscount = coupons.reduce((max, c) => Math.max(max, Number(c.discount_value || c.value) || 0), 0);
+
+    if (totalEl) totalEl.textContent = total;
+    if (activeEl) activeEl.textContent = active;
+    if (maxEl) maxEl.textContent = `${maxDiscount.toLocaleString()} ج.م`;
+    if (badge) badge.textContent = total;
+    if (listCount) listCount.textContent = `${total} كود مسجل (${active} نشط)`;
+  },
+
+  renderCouponsList(coupons) {
+    const tbody = document.getElementById("adminCouponsTableBody");
+    const emptyState = document.getElementById("couponsEmptyState");
+    if (!tbody) return;
+
+    if (!coupons || coupons.length === 0) {
+      tbody.innerHTML = "";
+      if (emptyState) emptyState.classList.remove("hidden");
+      return;
+    }
+
+    if (emptyState) emptyState.classList.add("hidden");
+
+    tbody.innerHTML = coupons.map(c => {
+      const code = c.code || "";
+      const value = Number(c.discount_value || c.value) || 0;
+      const minOrder = Number(c.min_order_amount) || 0;
+      const isActive = c.is_active !== false;
+      const label = c.label || `خصم ${value} ج.م`;
+      const dateStr = c.created_at ? new Date(c.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric', year: 'numeric' }) : 'مسجل';
+
+      return `
+        <tr class="hover:bg-obsidian-900/60 transition group text-right">
+          <td class="py-3 px-4 font-mono font-bold text-cream-100">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-lg bg-gold-500/10 border border-gold-500/30 text-gold-300 tracking-wider font-mono text-xs uppercase">
+                ${code}
+              </span>
+              <button 
+                type="button" 
+                onclick="window.AdminPage.copyCouponCode('${code}')" 
+                class="text-neutral-500 hover:text-gold-400 p-1 transition" 
+                title="نسخ الكود"
+              >
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </td>
+
+          <td class="py-3 px-4 text-center font-mono font-bold text-emerald-400">
+            <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs">
+              -${value.toLocaleString()} ج.م
+            </span>
+          </td>
+
+          <td class="py-3 px-4 text-center font-mono text-xs text-neutral-300">
+            ${minOrder > 0 ? `${minOrder.toLocaleString()} ج.م` : '<span class="text-neutral-500">بدون حد أدنى</span>'}
+          </td>
+
+          <td class="py-3 px-4 text-xs text-neutral-300 font-medium max-w-xs truncate">
+            ${label}
+          </td>
+
+          <td class="py-3 px-4 text-center">
+            <button 
+              type="button" 
+              onclick="window.AdminPage.toggleCoupon('${code}', ${isActive})" 
+              class="px-2.5 py-1 rounded-full text-[11px] font-bold transition inline-flex items-center justify-center gap-1 mx-auto cursor-pointer ${
+                isActive 
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30' 
+                  : 'bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700'
+              }"
+              title="اضغط لتغيير الحالة"
+            >
+              <span>${isActive ? '🟢 نشط' : '⚪ معطل'}</span>
+            </button>
+          </td>
+
+          <td class="py-3 px-4 text-center text-[11px] text-neutral-500 font-mono">
+            ${dateStr}
+          </td>
+
+          <td class="py-3 px-4 text-left">
+            <button 
+              type="button" 
+              onclick="window.AdminPage.deleteCoupon('${code}')" 
+              class="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition inline-flex items-center gap-1 cursor-pointer"
+              title="حذف الكود نهائياً"
+            >
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    if (window.lucide) lucide.createIcons({ root: tbody });
+  },
+
+  async saveCouponFromForm() {
+    const codeInput = document.getElementById("inputCouponCode");
+    const valueInput = document.getElementById("inputCouponValue");
+    const minOrderInput = document.getElementById("inputCouponMinOrder");
+    const labelInput = document.getElementById("inputCouponLabel");
+    const isActiveInput = document.getElementById("inputCouponIsActive");
+
+    const code = (codeInput?.value || "").trim().toUpperCase();
+    const value = parseInt(valueInput?.value, 10);
+    const minOrder = parseInt(minOrderInput?.value, 10) || 0;
+    const label = (labelInput?.value || "").trim() || `خصم ${value} ج.م (${code})`;
+    const isActive = isActiveInput ? isActiveInput.checked : true;
+
+    if (!code) {
+      alert("يرجى إدخال رمز كود الخصم (مثال: MUSK50)");
+      codeInput?.focus();
+      return;
+    }
+
+    if (!value || isNaN(value) || value <= 0) {
+      alert("يرجى إدخال قيمة الخصم بالجنيه المصري (مثال: 50 ج.م)");
+      valueInput?.focus();
+      return;
+    }
+
+    const saveBtn = document.getElementById("btnSaveCoupon");
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>جاري حفظ الكود...</span>';
+      if (window.lucide) lucide.createIcons({ root: saveBtn });
+    }
+
+    try {
+      const payload = {
+        code,
+        discount_value: value,
+        value,
+        min_order_amount: minOrder,
+        is_active: isActive,
+        label
+      };
+
+      if (window.SupabaseDB) {
+        await SupabaseDB.saveCoupon(payload);
+      } else {
+        Storage.savePromo(code, payload);
+      }
+
+      this.showToast("تم إنشاء كود الخصم 🏷️", `تم تفعيل كود الخصم ${code} بقيمة ${value} ج.م بنجاح`, "success");
+
+      // Reset form
+      if (codeInput) codeInput.value = "";
+      if (valueInput) valueInput.value = "";
+      if (minOrderInput) minOrderInput.value = "";
+      if (labelInput) labelInput.value = "";
+      if (isActiveInput) isActiveInput.checked = true;
+
+      await this.loadCoupons();
+    } catch (err) {
+      console.error("Save coupon error:", err);
+      alert("حدث خطأ أثناء حفظ كود الخصم: " + err.message);
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i data-lucide="tag" class="w-4 h-4"></i><span>حفظ ونشر كود الخصم فورياً</span>';
+        if (window.lucide) lucide.createIcons({ root: saveBtn });
+      }
+    }
+  },
+
+  async toggleCoupon(code, currentActive) {
+    try {
+      if (window.SupabaseDB) {
+        await SupabaseDB.toggleCouponStatus(code, !currentActive);
+      } else {
+        const settings = Storage.getSettings();
+        if (settings.promos && settings.promos[code]) {
+          settings.promos[code].is_active = !currentActive;
+          Storage.saveSettings(settings);
+        }
+      }
+      this.showToast("تم تحديث الحالة", `كود ${code} أصبح ${!currentActive ? 'نشطاً 🟢' : 'معطلاً ⚪'}`, "info");
+      await this.loadCoupons();
+    } catch (err) {
+      console.error("Toggle coupon error:", err);
+    }
+  },
+
+  async deleteCoupon(code) {
+    if (!confirm(`هل أنت متأكد من رغبتك في حذف كود الخصم [${code}] نهائياً؟`)) {
+      return;
+    }
+
+    try {
+      if (window.SupabaseDB) {
+        await SupabaseDB.deleteCoupon(code);
+      } else {
+        Storage.deletePromo(code);
+      }
+      this.showToast("تم حذف الكود", `تم حذف كود الخصم ${code} بنجاح`, "warning");
+      await this.loadCoupons();
+    } catch (err) {
+      console.error("Delete coupon error:", err);
+    }
+  },
+
+  copyCouponCode(code) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).then(() => {
+        this.showToast("تم نسخ الكود", `تم نسخ [${code}] إلى الحافظة`, "success");
+      });
+    } else {
+      prompt("انسخ كود الخصم:", code);
+    }
+  },
+
+  generateCouponCode() {
+    const prefixes = ["MUSK", "VIP", "EID", "ROYAL", "MARK"];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const randomNum = Math.floor(10 + Math.random() * 90);
+    const code = `${prefix}${randomNum}`;
+    const input = document.getElementById("inputCouponCode");
+    if (input) {
+      input.value = code;
+      input.focus();
+    }
+    const valInput = document.getElementById("inputCouponValue");
+    if (valInput && !valInput.value) {
+      valInput.value = 50;
+    }
+    const labelInput = document.getElementById("inputCouponLabel");
+    if (labelInput && !labelInput.value) {
+      labelInput.value = `خصم ملكي خاص ${valInput?.value || 50} ج.م`;
+    }
+  },
+
   showToast(title, message, type = "info") {
     const container = document.getElementById("adminToastContainer");
     if (!container) return;
@@ -1371,6 +1661,8 @@ const AdminPage = {
     setTimeout(() => toast.remove(), 4000);
   }
 };
+
+window.AdminPage = AdminPage;
 
 document.addEventListener("DOMContentLoaded", () => {
   AdminPage.init();
