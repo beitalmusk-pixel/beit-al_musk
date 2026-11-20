@@ -93,6 +93,7 @@ const AdminPage = {
   },
 
   openSupabaseModal() {
+    if (!isAuthenticated()) return;
     this.updateSupabaseStatusUI();
     const modal = document.getElementById("supabaseSyncModal");
     if (modal) modal.classList.remove("hidden");
@@ -233,39 +234,14 @@ const AdminPage = {
   },
 
   bindEvents() {
-    // --- Login Tabs Toggle ---
-    const tabSupabase = document.getElementById("tabLoginSupabase");
-    const tabPasscode = document.getElementById("tabLoginPasscode");
-    const emailGroup = document.getElementById("loginEmailGroup");
-    const passLabel = document.getElementById("loginPasswordLabel");
-    const emailInput = document.getElementById("adminEmailInput");
-    const passInput = document.getElementById("adminPasswordInput");
-
-    tabSupabase?.addEventListener("click", () => {
-      tabSupabase.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-gold-400 bg-obsidian-900 border border-gold-500/30 flex items-center justify-center gap-1.5";
-      tabPasscode.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-neutral-400 hover:text-cream-100 flex items-center justify-center gap-1.5";
-      if (emailGroup) emailGroup.classList.remove("hidden");
-      if (passLabel) passLabel.textContent = "كلمة مرور المشرف (Supabase Auth)";
-      if (emailInput) emailInput.focus();
-    });
-
-    tabPasscode?.addEventListener("click", () => {
-      tabPasscode.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-gold-400 bg-obsidian-900 border border-gold-500/30 flex items-center justify-center gap-1.5";
-      tabSupabase.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-neutral-400 hover:text-cream-100 flex items-center justify-center gap-1.5";
-      if (emailGroup) emailGroup.classList.add("hidden");
-      if (emailInput) emailInput.value = "";
-      if (passLabel) passLabel.textContent = "رمز المرور السريع للإدارة";
-      if (passInput) passInput.focus();
-    });
-
     // --- Login Form ---
+    const passInput = document.getElementById("adminPasswordInput");
     const loginForm = document.getElementById("adminLoginForm");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        const email = emailInput ? emailInput.value.trim() : "";
         const pass = passInput ? passInput.value : "";
-        this.handleLogin({ email, password: pass });
+        this.handleLogin(pass);
       });
     }
 
@@ -408,10 +384,6 @@ const AdminPage = {
 
     // --- Supabase Modal Events ---
     document.getElementById("btnOpenSupabaseModal")?.addEventListener("click", () => {
-      this.openSupabaseModal();
-    });
-
-    document.getElementById("btnOpenSupabaseModalFromLogin")?.addEventListener("click", () => {
       this.openSupabaseModal();
     });
 
