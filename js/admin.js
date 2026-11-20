@@ -483,6 +483,9 @@ const Admin = {
         const prod = Storage.getProductById(id);
         if (confirm(`هل أنت متأكد من حذف عطر "${prod?.name}" من الكتالوج؟`)) {
           Storage.deleteProduct(id);
+          if (window.CloudDB && CloudDB.isCloudActive()) {
+            CloudDB.deleteProduct(id).catch(e => console.warn("Cloud delete prod:", e));
+          }
           this.renderProductsList();
           if (window.app) window.app.showToast("تم الحذف", `تم حذف عطر "${prod?.name}".`, "info");
         }
@@ -650,6 +653,9 @@ const Admin = {
     };
 
     Storage.saveProduct(updatedProduct);
+    if (window.CloudDB && CloudDB.isCloudActive()) {
+      CloudDB.saveProduct(updatedProduct).catch(e => console.warn("Cloud save prod:", e));
+    }
     this.closeEditForm();
     this.renderProductsList();
 

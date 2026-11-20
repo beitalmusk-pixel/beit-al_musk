@@ -361,9 +361,12 @@ const Checkout = {
       `;
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         Storage.saveOrder(orderData);
+        if (window.CloudDB) {
+          CloudDB.submitOrder(orderData).catch(e => console.warn("Cloud order submission sync:", e));
+        }
         this.currentOrder = orderData;
         Storage.clearCart();
 

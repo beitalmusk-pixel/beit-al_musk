@@ -25,7 +25,23 @@ class LuxuryApp {
     this.init();
   }
 
-  init() {
+  async init() {
+    if (window.CloudDB) {
+      try {
+        const cloudReady = await CloudDB.init();
+        if (cloudReady) {
+          await CloudDB.fetchSettings();
+          await CloudDB.fetchProducts();
+          CloudDB.listenToProducts((updatedProds) => {
+            this.renderCollectionGrid();
+            this.renderMobileBottleCarousel();
+          });
+        }
+      } catch (e) {
+        console.warn("CloudDB init note:", e);
+      }
+    }
+
     if (window.CartUI) CartUI.init();
     if (window.Checkout) Checkout.init();
     if (window.Admin) Admin.init();

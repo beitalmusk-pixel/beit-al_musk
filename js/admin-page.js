@@ -32,11 +32,67 @@ const AdminPage = {
   currentProducts: [],
   currentTab: 'products',
   currentUploadedImage: null,
+  orders: [],
+  ordersFilter: 'all',
+  ordersSearch: '',
 
-  init() {
+  async init() {
     this.checkAuth();
     this.bindEvents();
+    await this.initCloud();
     if (window.lucide) lucide.createIcons();
+  },
+
+  async initCloud() {
+    if (window.CloudDB) {
+      try {
+        await CloudDB.init();
+      } catch (e) {
+        console.warn("CloudDB init:", e);
+      }
+    }
+    this.updateCloudStatusUI();
+  },
+
+  updateCloudStatusUI() {
+    const isCloud = window.CloudDB && CloudDB.isCloudActive();
+    const btnText = document.getElementById("cloudStatusText");
+    const banner = document.getElementById("cloudStatusBanner");
+    const icon = document.getElementById("cloudStatusIcon");
+    const title = document.getElementById("cloudStatusTitle");
+    const desc = document.getElementById("cloudStatusDesc");
+
+    if (btnText) {
+      btnText.innerHTML = isCloud
+        ? `<span>السحابة: متصلة</span> <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>`
+        : `<span>السحابة: محلي</span> <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>`;
+    }
+
+    if (banner && title && desc && icon) {
+      if (isCloud) {
+        banner.className = "p-4 rounded-xl border mb-6 text-xs flex items-center gap-3 bg-emerald-950/40 border-emerald-500/30";
+        icon.textContent = "🟢";
+        title.textContent = "حالة الاتصال: سحابي نشط ومتزامن (Google Firebase Active)";
+        desc.textContent = "جميع العطور والأسعار والتعديلات وأرقام الكاش تُحفظ وتُزامن سحابياً وفورياً مع كافة زوار الموقع في جميع أنحاء العالم.";
+      } else {
+        banner.className = "p-4 rounded-xl border mb-6 text-xs flex items-center gap-3 bg-amber-950/30 border-amber-500/30";
+        icon.textContent = "🟡";
+        title.textContent = "حالة الاتصال: وضع محلي (Local Mode)";
+        desc.textContent = "البيانات تُحفظ في ذاكرة هذا المتصفح فقط. لربطها سحابياً لجميع الزوار، أدخل بيانات مشروعك في Firebase أدناه.";
+      }
+    }
+
+    // Pre-fill modal form fields if config exists
+    if (window.FirebaseConfig) {
+      const cfg = FirebaseConfig.getConfig();
+      if (cfg) {
+        document.getElementById("cloudApiKey") && (document.getElementById("cloudApiKey").value = cfg.apiKey || "");
+        document.getElementById("cloudProjectId") && (document.getElementById("cloudProjectId").value = cfg.projectId || "");
+        document.getElementById("cloudAuthDomain") && (document.getElementById("cloudAuthDomain").value = cfg.authDomain || "");
+        document.getElementById("cloudStorageBucket") && (document.getElementById("cloudStorageBucket").value = cfg.storageBucket || "");
+        document.getElementById("cloudAppId") && (document.getElementById("cloudAppId").value = cfg.appId || "");
+      }
+    }
   },
 
   checkAuth() {
@@ -47,6 +103,7 @@ const AdminPage = {
       if (loginGate) loginGate.classList.add("hidden");
       if (dashboard) dashboard.classList.remove("hidden");
       this.refreshData();
+      this.initOrdersListener();
       if (window.lucide) lucide.createIcons({ root: dashboard });
     } else {
       if (loginGate) loginGate.classList.remove("hidden");
@@ -201,13 +258,57 @@ const AdminPage = {
       document.getElementById(id)?.addEventListener("input", () => this.updateLivePreview());
     });
 
-    // --- Tab Switching (Products vs Payment & Contact Settings) ---
+    // --- Tab Switching (Products vs Orders vs Payment) ---
     document.getElementById("adminTabProductsBtn")?.addEventListener("click", () => {
       this.switchTab("products");
     });
 
+    document.getElementById("adminTabOrdersBtn")?.addEventListener("click", () => {
+      this.switchTab("orders");
+    });
+
     document.getElementById("adminTabPaymentBtn")?.addEventListener("click", () => {
       this.switchTab("payment");
+    });
+
+    // --- Cloud Modal Events ---
+    document.getElementById("btnOpenCloudModal")?.addEventListener("click", () => {
+      this.openCloudModal();
+    });
+
+    document.getElementById("btnCloseCloudModal")?.addEventListener("click", () => {
+      this.closeCloudModal();
+    });
+
+    document.getElementById("cloudConfigForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await this.handleSaveCloudConfig();
+    });
+
+    document.getElementById("btnClearCloudConfig")?.addEventListener("click", () => {
+      this.handleClearCloudConfig();
+    });
+
+    // --- Orders Section Events ---
+    document.getElementById("btnRefreshOrders")?.addEventListener("click", () => {
+      this.loadOrders();
+      this.showToast("تحديث الطلبات", "تم فحص وتحديث قائمة الطلبات من السحابة", "info");
+    });
+
+    document.querySelectorAll(".order-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".order-filter-btn").forEach(b => {
+          b.className = "order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-neutral-800 text-neutral-400 hover:text-cream-100";
+        });
+        btn.className = "order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-gold-500/40 bg-gold-500/20 text-gold-300";
+        this.ordersFilter = btn.getAttribute("data-status") || "all";
+        this.renderOrders();
+      });
+    });
+
+    document.getElementById("inputSearchOrders")?.addEventListener("input", (e) => {
+      this.ordersSearch = e.target.value.trim().toLowerCase();
+      this.renderOrders();
     });
 
     // --- Payment Settings Form Submit & Top Save Button ---
@@ -332,28 +433,250 @@ const AdminPage = {
   switchTab(tabName) {
     this.currentTab = tabName;
     const tabProdBtn = document.getElementById("adminTabProductsBtn");
+    const tabOrdersBtn = document.getElementById("adminTabOrdersBtn");
     const tabPayBtn = document.getElementById("adminTabPaymentBtn");
     const prodSection = document.getElementById("adminProductsSection");
+    const ordersSection = document.getElementById("adminOrdersSection");
     const paySection = document.getElementById("adminPaymentSection");
 
     const activeClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-gold-500/50 bg-gold-500/20 text-gold-300 shadow-sm shadow-gold-500/10 cursor-pointer";
     const inactiveClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer";
 
+    if (tabProdBtn) tabProdBtn.className = tabName === "products" ? activeClass : inactiveClass;
+    if (tabOrdersBtn) tabOrdersBtn.className = tabName === "orders" ? activeClass : inactiveClass;
+    if (tabPayBtn) tabPayBtn.className = tabName === "payment" ? activeClass : inactiveClass;
+
+    if (prodSection) prodSection.classList.toggle("hidden", tabName !== "products");
+    if (ordersSection) ordersSection.classList.toggle("hidden", tabName !== "orders");
+    if (paySection) paySection.classList.toggle("hidden", tabName !== "payment");
+
     if (tabName === "products") {
-      if (tabProdBtn) tabProdBtn.className = activeClass;
-      if (tabPayBtn) tabPayBtn.className = inactiveClass;
-      if (prodSection) prodSection.classList.remove("hidden");
-      if (paySection) paySection.classList.add("hidden");
       this.refreshData();
+    } else if (tabName === "orders") {
+      this.loadOrders();
     } else if (tabName === "payment") {
-      if (tabProdBtn) tabProdBtn.className = inactiveClass;
-      if (tabPayBtn) tabPayBtn.className = activeClass;
-      if (prodSection) prodSection.classList.add("hidden");
-      if (paySection) paySection.classList.remove("hidden");
       this.loadPaymentSettings();
     }
 
     if (window.lucide) lucide.createIcons();
+  },
+
+  // --- Cloud Setup Modal Actions ---
+  openCloudModal() {
+    this.updateCloudStatusUI();
+    const modal = document.getElementById("cloudSyncModal");
+    if (modal) modal.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons();
+  },
+
+  closeCloudModal() {
+    const modal = document.getElementById("cloudSyncModal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  async handleSaveCloudConfig() {
+    const apiKey = document.getElementById("cloudApiKey")?.value.trim();
+    const projectId = document.getElementById("cloudProjectId")?.value.trim();
+    const authDomain = document.getElementById("cloudAuthDomain")?.value.trim();
+    const storageBucket = document.getElementById("cloudStorageBucket")?.value.trim();
+    const appId = document.getElementById("cloudAppId")?.value.trim();
+
+    if (!apiKey || !projectId) {
+      alert("يرجى إدخال API Key و Project ID على الأقل للربط مع Firebase.");
+      return;
+    }
+
+    try {
+      window.FirebaseConfig.saveConfig({ apiKey, projectId, authDomain, storageBucket, appId });
+      this.showToast("جاري الربط السحابي", "جاري الاتصال بمشروع Firebase الخاص بك...", "info");
+      
+      const success = await CloudDB.init();
+      if (success) {
+        this.updateCloudStatusUI();
+        this.closeCloudModal();
+        this.showToast("تم الربط السحابي بنجاح 🟢", "متجرك متصل الآن بسحابة Google Firebase وكل التعديلات تُزامن لجميع الزوار فوراً!", "success");
+        this.refreshData();
+        this.initOrdersListener();
+      } else {
+        alert("تعذر الاتصال بـ Firebase بهذا المفتاح. يرجى التأكد من صحة الـ API Key والـ Project ID وتفعيل Cloud Firestore.");
+      }
+    } catch (err) {
+      alert("خطأ أثناء حفظ التكوين: " + err.message);
+    }
+  },
+
+  handleClearCloudConfig() {
+    if (confirm("هل تريد بالتأكيد إلغاء الربط السحابي والعودة للتخزين المحلي فقط؟")) {
+      window.FirebaseConfig.clearConfig();
+      if (window.CloudDB) {
+        CloudDB.isInitialized = false;
+        CloudDB.db = null;
+      }
+      this.updateCloudStatusUI();
+      this.closeCloudModal();
+      this.showToast("تمت الاستعادة", "تم إلغاء الربط السحابي والرجوع للوضع المحلي (Local Mode).", "info");
+    }
+  },
+
+  // --- Live Orders Management ---
+  initOrdersListener() {
+    if (window.CloudDB) {
+      CloudDB.listenToOrders((orders) => {
+        this.orders = orders || [];
+        this.updateOrdersBadge();
+        if (this.currentTab === "orders") {
+          this.renderOrders();
+        }
+      });
+    }
+  },
+
+  async loadOrders() {
+    if (window.CloudDB) {
+      this.orders = await CloudDB.fetchOrders();
+    } else {
+      this.orders = Storage.getOrders();
+    }
+    this.updateOrdersBadge();
+    this.renderOrders();
+  },
+
+  updateOrdersBadge() {
+    const badge = document.getElementById("adminOrdersBadge");
+    if (!badge) return;
+    const newCount = this.orders.filter(o => o.status === "new" || !o.status).length;
+    if (newCount > 0) {
+      badge.textContent = newCount;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  },
+
+  renderOrders() {
+    const container = document.getElementById("adminOrdersContainer");
+    if (!container) return;
+
+    let list = this.orders || [];
+
+    // Filter by status
+    if (this.ordersFilter !== "all") {
+      list = list.filter(o => (o.status || "new") === this.ordersFilter);
+    }
+
+    // Filter by search
+    if (this.ordersSearch) {
+      const q = this.ordersSearch;
+      list = list.filter(o => 
+        (o.orderId && o.orderId.toLowerCase().includes(q)) ||
+        (o.customer?.fullName && o.customer.fullName.toLowerCase().includes(q)) ||
+        (o.customer?.phone && o.customer.phone.includes(q)) ||
+        (o.customer?.address && o.customer.address.toLowerCase().includes(q))
+      );
+    }
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="py-16 text-center text-neutral-400 bg-obsidian-900/40 rounded-2xl border border-neutral-800">
+          <span class="text-4xl block mb-2">📦</span>
+          <h4 class="font-amiri text-xl font-bold text-cream-100">لا توجد طلبات مطابقة</h4>
+          <p class="text-xs text-neutral-500 mt-1">أي طلب يجريه العملاء في المتجر سيظهر هنا في الوقت الفعلي.</p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = "";
+    list.forEach(ord => {
+      const statusMap = {
+        new: { label: "طلب جديد 🟢", bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+        processing: { label: "قيد التجهيز 🟡", bg: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+        shipped: { label: "تم الشحن 🚚", bg: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
+        completed: { label: "مكتمل ومسلّم ✅", bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+        cancelled: { label: "ملغي ❌", bg: "bg-red-500/10 text-red-400 border-red-500/30" }
+      };
+      const curStatus = ord.status || "new";
+      const statusBadge = statusMap[curStatus] || statusMap.new;
+
+      let itemsList = (ord.items || []).map(it => `
+        <div class="text-xs flex items-center justify-between py-1 border-b border-neutral-800/40">
+          <span class="text-cream-200 font-amiri">${it.name} <span class="text-neutral-500 font-mono">(${it.size})</span> × <strong class="text-gold-400">${it.quantity}</strong></span>
+          <span class="font-mono text-gold-400 font-bold">${(it.unitPrice * it.quantity).toLocaleString()} ج.م</span>
+        </div>
+      `).join('');
+
+      html += `
+        <div class="p-6 rounded-2xl bg-obsidian-900/80 border border-neutral-800 space-y-4 text-right transition hover:border-gold-500/30 shadow-lg">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-neutral-800">
+            <div class="flex items-center gap-3">
+              <span class="px-3 py-1 rounded-full text-xs font-mono font-bold ${statusBadge.bg} border">
+                ${statusBadge.label}
+              </span>
+              <span class="font-mono text-sm font-bold text-gold-400 tracking-wider">#${ord.orderId}</span>
+              <span class="text-[11px] text-neutral-500 font-mono">${ord.formattedDate || ''}</span>
+            </div>
+
+            <!-- Change Status Dropdown -->
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-neutral-400">تحديث الحالة:</span>
+              <select class="order-status-select bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 rounded-lg px-2.5 py-1 focus:border-gold-500" data-order-id="${ord.orderId}">
+                <option value="new" ${curStatus === 'new' ? 'selected' : ''}>طلب جديد 🟢</option>
+                <option value="processing" ${curStatus === 'processing' ? 'selected' : ''}>قيد التجهيز 🟡</option>
+                <option value="shipped" ${curStatus === 'shipped' ? 'selected' : ''}>تم الشحن 🚚</option>
+                <option value="completed" ${curStatus === 'completed' ? 'selected' : ''}>مكتمل ومسلّم ✅</option>
+                <option value="cancelled" ${curStatus === 'cancelled' ? 'selected' : ''}>ملغي ❌</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="space-y-1.5 p-4 rounded-xl bg-obsidian-950/70 border border-neutral-850">
+              <h5 class="font-amiri font-bold text-gold-300 text-sm mb-1 flex items-center gap-1.5">
+                <span>👤</span> بيانات العميل
+              </h5>
+              <p class="text-cream-100 font-bold text-sm">${ord.customer?.fullName || '-'}</p>
+              <p class="text-neutral-300 font-mono" dir="ltr">📞 <a href="tel:${ord.customer?.phone}" class="hover:text-gold-400 underline">${ord.customer?.phone || '-'}</a></p>
+              <p class="text-neutral-400 leading-relaxed font-sans">📍 ${ord.customer?.address || '-'}</p>
+              ${ord.customer?.notes ? `<p class="text-[11px] text-amber-300/90 italic pt-1 border-t border-neutral-800">ملاحظات: "${ord.customer.notes}"</p>` : ''}
+            </div>
+
+            <div class="space-y-2 p-4 rounded-xl bg-obsidian-950/70 border border-neutral-850 flex flex-col justify-between">
+              <div>
+                <h5 class="font-amiri font-bold text-gold-300 text-sm mb-1 flex items-center gap-1.5">
+                  <span>🛍️</span> العطور المطلوبة
+                </h5>
+                <div class="space-y-1">
+                  ${itemsList}
+                </div>
+              </div>
+              <div class="pt-2 border-t border-neutral-800 flex justify-between items-center text-xs">
+                <span class="text-neutral-400">طريقة الدفع: <strong class="text-gold-400 font-medium">${ord.paymentMethod || '-'}</strong></span>
+                <span class="font-mono text-base font-bold text-gold-400">${ord.totals?.grandTotal?.toLocaleString() || 0} ج.م</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    // Attach Status Select Listener
+    container.querySelectorAll(".order-status-select").forEach(sel => {
+      sel.addEventListener("change", async (e) => {
+        const orderId = sel.getAttribute("data-order-id");
+        const newStatus = e.target.value;
+        sel.disabled = true;
+        if (window.CloudDB) {
+          await CloudDB.updateOrderStatus(orderId, newStatus);
+        }
+        this.showToast("تم تحديث حالة الطلب", `تم تغيير حالة الطلب #${orderId} بنجاح.`, "success");
+        sel.disabled = false;
+        this.loadOrders();
+      });
+    });
+
+    if (window.lucide) lucide.createIcons({ root: container });
   },
 
   loadPaymentSettings() {
@@ -408,6 +731,9 @@ const AdminPage = {
     };
 
     Storage.saveSettings(newSettings);
+    if (window.CloudDB && CloudDB.isCloudActive()) {
+      CloudDB.saveSettings(newSettings).catch(e => console.warn("Cloud settings sync:", e));
+    }
     this.showToast("تم الحفظ بنجاح", "تم حفظ وتحديث أرقام الكاش والإنستا وبيانات تحويل الأموال وتطبيقها فوراً على المتجر.", "success");
   },
 
@@ -619,6 +945,9 @@ const AdminPage = {
         const prod = Storage.getProductById(id);
         if (confirm(`هل أنت متأكد من حذف عطر "${prod?.name}" نهائياً من المتجر؟`)) {
           Storage.deleteProduct(id);
+          if (window.CloudDB && CloudDB.isCloudActive()) {
+            CloudDB.deleteProduct(id).catch(e => console.warn("Cloud delete prod:", e));
+          }
           this.refreshData();
           this.showToast("تم الحذف", `تم حذف عطر "${prod?.name}" بنجاح`, "info");
         }
@@ -810,6 +1139,9 @@ const AdminPage = {
     };
 
     Storage.saveProduct(productObj);
+    if (window.CloudDB && CloudDB.isCloudActive()) {
+      CloudDB.saveProduct(productObj).catch(e => console.warn("Cloud save prod:", e));
+    }
     this.closeForm();
     this.refreshData();
     this.showToast("تم الحفظ بنجاح", `تم تحديث وحفظ بيانات عطر "${name}" في المتجر.`, "success");

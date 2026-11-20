@@ -149,6 +149,11 @@
             <span>إضافة عطر جديد</span>
           </button>
 
+          <button id="btnOpenCloudModal" class="px-3.5 py-2 rounded-full border border-sky-500/30 hover:border-sky-500/60 bg-sky-500/10 text-xs text-sky-400 hover:text-sky-300 transition flex items-center gap-1.5" title="الربط السحابي مع Google Firebase">
+            <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
+            <span id="cloudStatusText">الربط السحابي (Firebase)</span>
+          </button>
+
           <button id="btnOpenChangePassModal" class="px-3.5 py-2 rounded-full border border-neutral-700 hover:border-gold-500/50 bg-obsidian-950/80 text-xs text-neutral-300 hover:text-gold-400 transition flex items-center gap-1.5" title="تغيير كلمة المرور">
             <i data-lucide="key" class="w-3.5 h-3.5"></i>
             <span>تغيير الرمز السري</span>
@@ -176,6 +181,12 @@
         <button id="adminTabProductsBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-gold-500/50 bg-gold-500/20 text-gold-300 shadow-sm shadow-gold-500/10 cursor-pointer">
           <i data-lucide="package" class="w-4 h-4"></i>
           <span>كتالوج العطور والمخزون</span>
+        </button>
+
+        <button id="adminTabOrdersBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer relative">
+          <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+          <span>الطلبات الواردة الحية</span>
+          <span id="adminOrdersBadge" class="hidden px-2 py-0.5 rounded-full bg-emerald-500 text-obsidian-950 text-[10px] font-bold font-mono">0</span>
         </button>
 
         <button id="adminTabPaymentBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer">
@@ -430,6 +441,137 @@
         </form>
 
       </section>
+
+      <!-- قسم الطلبات الواردة الحية (Live Cloud Orders) -->
+      <section id="adminOrdersSection" class="hidden space-y-6">
+        
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-neutral-800 pb-4">
+          <div>
+            <h3 class="font-amiri text-2xl font-bold text-cream-100 flex items-center gap-2">
+              <span>📋</span> سجل ومتابعة طلبات العملاء الحية
+            </h3>
+            <p class="text-xs text-neutral-400 mt-1">تصل الطلبات هنا تلقائياً في الوقت الفعلي فور تأكيد العميل للطلب في المتجر.</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btnRefreshOrders" class="p-2.5 rounded-xl border border-neutral-700 hover:border-gold-500/40 text-neutral-400 hover:text-gold-400 text-xs transition flex items-center gap-1.5" title="تحديث قائمة الطلبات">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+              <span>تحديث</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- فلترة وبحث الطلبات -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-obsidian-900/60 p-4 rounded-2xl border border-neutral-800">
+          <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0" id="ordersFilterGroup">
+            <button class="order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-gold-500/40 bg-gold-500/20 text-gold-300" data-status="all">الكل</button>
+            <button class="order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-neutral-800 text-neutral-400 hover:text-cream-100" data-status="new">جديد 🟢</button>
+            <button class="order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-neutral-800 text-neutral-400 hover:text-cream-100" data-status="processing">قيد التجهيز 🟡</button>
+            <button class="order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-neutral-800 text-neutral-400 hover:text-cream-100" data-status="shipped">تم الشحن 🚚</button>
+            <button class="order-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-neutral-800 text-neutral-400 hover:text-cream-100" data-status="completed">مكتمل ✅</button>
+          </div>
+
+          <div class="relative w-full sm:w-72">
+            <input type="text" id="inputSearchOrders" placeholder="بحث برقم الطلب، الاسم، أو الهاتف..." class="w-full pl-4 pr-9 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 text-right">
+            <i data-lucide="search" class="w-4 h-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <!-- حاوية بطاقات الطلبات -->
+        <div id="adminOrdersContainer" class="space-y-4">
+          <!-- Live Orders Injected via JS -->
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- =========================================================================
+       2.5 نافذة إعدادات الربط السحابي (Google Firebase Cloud Setup Modal)
+       ========================================================================= -->
+  <div id="cloudSyncModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-4 sm:p-6 flex items-center justify-center overflow-y-auto" dir="rtl">
+    <div class="modal-dialog bg-obsidian-950 border border-sky-500/30 rounded-2xl w-full max-w-xl shadow-2xl p-6 sm:p-8 text-right relative my-6">
+      
+      <div class="flex justify-between items-center pb-4 border-b border-neutral-800 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-lg">
+            ☁️
+          </div>
+          <div>
+            <h3 class="font-amiri text-xl font-bold text-cream-100">إعدادات الربط السحابي مع Google Firebase</h3>
+            <p class="text-[11px] text-neutral-400">مزامنة فورية للأسعار والمخزون والطلبات عبر كل أجهزة العالم</p>
+          </div>
+        </div>
+        <button type="button" id="btnCloseCloudModal" class="text-neutral-400 hover:text-cream-100 p-1.5 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Cloud Status Box -->
+      <div id="cloudStatusBanner" class="p-4 rounded-xl border mb-6 text-xs flex items-center gap-3 bg-neutral-900/60 border-neutral-800">
+        <span class="text-2xl" id="cloudStatusIcon">🟡</span>
+        <div class="flex-1">
+          <h5 class="font-bold text-cream-100" id="cloudStatusTitle">الوضع الحالي: وضع محلي (Local Mode)</h5>
+          <p class="text-neutral-400 text-[11px] mt-0.5" id="cloudStatusDesc">البيانات تُحفظ في ذاكرة هذا المتصفح فقط. لربطها سحابياً لجميع الزوار، أدخل بيانات مشروعك في Firebase أدناه.</p>
+        </div>
+      </div>
+
+      <!-- Quick Setup Guide Accordion -->
+      <details class="mb-6 p-4 rounded-xl bg-obsidian-900 border border-neutral-800 text-xs text-neutral-300">
+        <summary class="font-bold text-gold-400 cursor-pointer list-none flex justify-between items-center">
+          <span>📖 كيف أحصل على بيانات Firebase مجاناً في دقيقتين؟</span>
+          <span class="text-neutral-500 text-[10px]">اضغط للعرض</span>
+        </summary>
+        <div class="space-y-2 mt-3 pt-3 border-t border-neutral-800 text-[11px] leading-relaxed font-sans text-neutral-400">
+          <p>1. افتح <a href="https://console.firebase.google.com" target="_blank" class="text-sky-400 underline font-mono">console.firebase.google.com</a> وسجل بحساب Google مجاناً.</p>
+          <p>2. اضغط <strong>Create a project</strong> وأعطه اسماً (مثل: <code>beit-al-musk</code>).</p>
+          <p>3. من القائمة الجانبية، اختر <strong>Build -> Firestore Database</strong> واضغط <strong>Create Database</strong> (اختر Start in test mode).</p>
+          <p>4. اذهب إلى إعدادات المشروع (Project Settings ⚙️) ثم انزل لأسفل واضغط على أيقونة الويب <code>&lt;/&gt;</code> لنسخ مفاتيح الـ <code>firebaseConfig</code>.</p>
+        </div>
+      </details>
+
+      <form id="cloudConfigForm" class="space-y-4 text-xs">
+        <div>
+          <label class="block text-neutral-300 font-medium mb-1">API Key</label>
+          <input type="text" id="cloudApiKey" required placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left" dir="ltr">
+        </div>
+
+        <div>
+          <label class="block text-neutral-300 font-medium mb-1">Project ID</label>
+          <input type="text" id="cloudProjectId" required placeholder="beit-al-musk-xxxxx" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left" dir="ltr">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-neutral-300 font-medium mb-1">Auth Domain (اختياري)</label>
+            <input type="text" id="cloudAuthDomain" placeholder="xxx.firebaseapp.com" class="w-full px-3.5 py-2 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left" dir="ltr">
+          </div>
+          <div>
+            <label class="block text-neutral-300 font-medium mb-1">Storage Bucket (اختياري)</label>
+            <input type="text" id="cloudStorageBucket" placeholder="xxx.appspot.com" class="w-full px-3.5 py-2 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left" dir="ltr">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-neutral-300 font-medium mb-1">App ID (اختياري)</label>
+          <input type="text" id="cloudAppId" placeholder="1:xxxx:web:xxxx" class="w-full px-3.5 py-2 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left" dir="ltr">
+        </div>
+
+        <div class="pt-4 flex flex-col sm:flex-row justify-between gap-3 border-t border-neutral-800">
+          <button type="button" id="btnClearCloudConfig" class="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold transition">
+            إلغاء الربط والرجوع للوضع المحلي
+          </button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-sky-500/20">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>حفظ واختبار الاتصال السحابي</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
 
     </main>
 
@@ -713,6 +855,15 @@
   <div id="adminToastContainer" class="fixed top-20 left-4 sm:left-8 z-50 flex flex-col gap-2 pointer-events-none" dir="rtl"></div>
 
   <!-- Core Scripts -->
+  <!-- Firebase SDK (v10 Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+  <!-- Cloud Sync Layer -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/cloud-db.js"></script>
+
   <script src="js/products.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/admin-page.js"></script>
