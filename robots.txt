@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin.html
 Disallow: /.archive_shots/
 
-Sitemap: https://beitalmusk.com/sitemap.xml
+Sitemap: https://beitalmusk-pixel.github.io/beit-al_musk/sitemap.xml
