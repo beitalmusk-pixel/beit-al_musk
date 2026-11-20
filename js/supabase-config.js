@@ -6,10 +6,10 @@
 const SupabaseConfig = {
   STORAGE_KEY: "beit_al_musk_supabase_credentials_v1",
 
-  // الإعدادات الافتراضية
+  // الإعدادات الافتراضية المعتمدة لمتجر بيت المسك
   defaultConfig: {
-    url: "",
-    anonKey: ""
+    url: "https://txunqrvjcvziozulkegv.supabase.co",
+    anonKey: "sb_publishable_X4cum6mHNaYrZjcevTkfWA_1F-YB1JV"
   },
 
   getConfig() {
