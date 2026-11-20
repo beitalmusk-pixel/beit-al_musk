@@ -853,7 +853,7 @@ class LuxuryApp {
       discountedUnitPrice,
       discountedTotal
     };
-  },
+  }
 
   updateSpotlightCalculations() {
     if (!this.currentSpotlightProduct) return;
