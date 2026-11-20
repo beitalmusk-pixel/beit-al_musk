@@ -3,6 +3,40 @@
  * Catalog Management Admin Panel (Arabic Edition)
  */
 
+function sanitizeImageUrl(rawUrl, fallback = "assets/logo.jpg") {
+  if (!rawUrl || typeof rawUrl !== "string") return fallback;
+  const trimmed = rawUrl.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("vbscript:") || lower.startsWith("data:text/html")) return fallback;
+  if (trimmed.startsWith("assets/") || trimmed.startsWith("./assets/") || trimmed.startsWith("/")) {
+    if (/[<>"'\s]/.test(trimmed)) return fallback;
+    return trimmed;
+  }
+  if (trimmed.startsWith("data:image/")) {
+    if (trimmed.includes(";") && trimmed.includes("base64,")) return trimmed;
+    return fallback;
+  }
+  try {
+    const parsed = new URL(trimmed, window.location.origin);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.href;
+  } catch (e) {
+    return fallback;
+  }
+  return fallback;
+}
+window.sanitizeImageUrl = sanitizeImageUrl;
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+window.escapeHtml = escapeHtml;
+
 const Admin = {
   modalEl: null,
   activeEditingId: null,
@@ -23,14 +57,6 @@ const Admin = {
     // Close Admin Modal
     document.querySelectorAll("[data-close-admin]").forEach(btn => {
       btn.addEventListener("click", () => this.closeAdminModal());
-    });
-
-    // Keyboard shortcut: Ctrl + Shift + A
-    window.addEventListener("keydown", (e) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")) {
-        e.preventDefault();
-        this.openAdminModal();
-      }
     });
 
     // Tab Navigation
@@ -213,11 +239,7 @@ const Admin = {
   },
 
   openAdminModal() {
-    if (!this.modalEl) return;
-    this.closeEditForm();
-    this.switchTab("products");
-    this.modalEl.classList.remove("hidden");
-    document.body.style.overflow = "hidden";
+    window.location.href = "admin.html";
   },
 
   closeAdminModal() {
@@ -284,14 +306,17 @@ const Admin = {
 
     let html = "";
     entries.forEach(([code, p]) => {
-      const typeLabel = p.type === "percent" ? `${p.value}% خصم` : `${p.value} ج.م خصم`;
+      const safeCode = escapeHtml(code);
+      const safeLabel = escapeHtml(p.label || "-");
+      const safeVal = Number(p.value) || 0;
+      const typeLabel = p.type === "percent" ? `${safeVal}% خصم` : `${safeVal} ج.م خصم`;
       html += `
         <tr class="border-b border-neutral-800/80 hover:bg-neutral-800/30 transition">
-          <td class="py-2.5 px-3 font-mono font-bold text-gold-400">${code}</td>
+          <td class="py-2.5 px-3 font-mono font-bold text-gold-400">${safeCode}</td>
           <td class="py-2.5 px-3 text-center font-mono text-cream-100 font-semibold">${typeLabel}</td>
-          <td class="py-2.5 px-3 text-neutral-300">${p.label || "-"}</td>
+          <td class="py-2.5 px-3 text-neutral-300">${safeLabel}</td>
           <td class="py-2.5 px-3 text-left">
-            <button type="button" class="admin-del-promo-btn text-neutral-500 hover:text-red-400 p-1 transition" data-promo-code="${code}" title="حذف الكوبون">
+            <button type="button" class="admin-del-promo-btn text-neutral-500 hover:text-red-400 p-1 transition" data-promo-code="${safeCode}" title="حذف الكوبون">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </td>
@@ -420,6 +445,12 @@ const Admin = {
         ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${prod.stock} متوفر</span>`
         : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">متبقي ${prod.stock} فقط</span>`;
 
+      const safeImage = sanitizeImageUrl(prod.image);
+      const safeName = escapeHtml(prod.name);
+      const safeSubtitle = escapeHtml(prod.subtitle || "");
+      const safeCategory = escapeHtml(prod.category || "");
+      const safeId = escapeHtml(prod.id);
+
       html += `
         <tr class="border-b border-neutral-800/80 hover:bg-neutral-800/30 transition text-xs">
           <td class="py-3 px-4 font-mono text-neutral-400 text-center">${idx + 1}</td>
@@ -427,15 +458,15 @@ const Admin = {
             <div class="flex items-center gap-3">
               <div class="w-8 h-10 rounded border border-gold-500/30 bg-obsidian-950 flex items-center justify-center overflow-hidden flex-shrink-0">
                 ${prod.image 
-                  ? `<img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-contain p-0.5">` 
+                  ? `<img src="${safeImage}" alt="${safeName}" class="w-full h-full object-contain p-0.5">` 
                   : generateBottleSvg(prod, 32, 40)}
               </div>
               <div>
                 <p class="font-amiri font-bold text-cream-100 text-sm flex items-center gap-2">
-                  <span>${prod.name}</span>
+                  <span>${safeName}</span>
                   ${podiumBadge}
                 </p>
-                <p class="text-[10px] text-neutral-400 font-sans">${prod.subtitle} • ${prod.category}</p>
+                <p class="text-[10px] text-neutral-400 font-sans">${safeSubtitle} • ${safeCategory}</p>
               </div>
             </div>
           </td>
@@ -453,10 +484,10 @@ const Admin = {
           </td>
           <td class="py-3 px-4 text-left">
             <div class="flex items-center justify-end gap-2">
-              <button class="admin-edit-prod-btn px-3 py-1 rounded bg-gold-500/10 text-gold-400 hover:bg-gold-500 hover:text-obsidian-950 text-xs font-bold transition" data-id="${prod.id}">
+              <button class="admin-edit-prod-btn px-3 py-1 rounded bg-gold-500/10 text-gold-400 hover:bg-gold-500 hover:text-obsidian-950 text-xs font-bold transition" data-id="${safeId}">
                 تعديل
               </button>
-              <button class="admin-delete-prod-btn p-1.5 rounded text-neutral-500 hover:text-red-400 transition" data-id="${prod.id}" title="حذف">
+              <button class="admin-delete-prod-btn p-1.5 rounded text-neutral-500 hover:text-red-400 transition" data-id="${safeId}" title="حذف">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
@@ -535,7 +566,7 @@ const Admin = {
 
       this.currentUploadedImage = prod.image || "assets/logo.jpg";
       const imgEl = document.getElementById("embeddedProdImagePreview");
-      if (imgEl) imgEl.src = this.currentUploadedImage;
+      if (imgEl) imgEl.src = sanitizeImageUrl(this.currentUploadedImage);
       const urlInput = document.getElementById("embeddedProdImageUrlInput");
       if (urlInput) urlInput.value = prod.image && !prod.image.startsWith("data:") ? prod.image : "";
 
@@ -613,9 +644,13 @@ const Admin = {
     const gender = isWomen ? "حريمي ساحر (Pour Femme)" : "رجالي فاخر (Pour Homme)";
     const podiumTitle = isWomen ? "الجناح النسائي 🌸" : "الجناح الرجالي 👑";
 
-    const image = (this.currentUploadedImage || document.getElementById("embeddedProdImageUrlInput")?.value || existing.image || "assets/logo.jpg").trim();
-
     const existing = Storage.getProductById(id) || {};
+    const image = sanitizeImageUrl((
+      this.currentUploadedImage ||
+      document.getElementById("embeddedProdImageUrlInput")?.value ||
+      existing.image ||
+      "assets/logo.jpg"
+    ).trim());
 
     const updatedProduct = {
       ...existing,

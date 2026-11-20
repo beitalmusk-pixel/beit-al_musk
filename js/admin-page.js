@@ -3,28 +3,78 @@
  * Bayt Al Musk - Dedicated Protected Admin Dashboard Controller
  */
 
-const ADMIN_STORAGE_KEY_PASS = "bayt_al_musk_admin_pass_v1";
-const ADMIN_STORAGE_KEY_AUTH = "bayt_al_musk_admin_auth_v1";
-const DEFAULT_ADMIN_PASSWORD = "musk2026";
-
-function getAdminPassword() {
-  return localStorage.getItem(ADMIN_STORAGE_KEY_PASS) || DEFAULT_ADMIN_PASSWORD;
+function sanitizeImageUrl(rawUrl, fallback = "assets/logo.jpg") {
+  if (!rawUrl || typeof rawUrl !== "string") return fallback;
+  const trimmed = rawUrl.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("vbscript:") || lower.startsWith("data:text/html")) return fallback;
+  if (trimmed.startsWith("assets/") || trimmed.startsWith("./assets/") || trimmed.startsWith("/")) {
+    if (/[<>"'\s]/.test(trimmed)) return fallback;
+    return trimmed;
+  }
+  if (trimmed.startsWith("data:image/")) {
+    if (trimmed.includes(";") && trimmed.includes("base64,")) return trimmed;
+    return fallback;
+  }
+  try {
+    const parsed = new URL(trimmed, window.location.origin);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.href;
+  } catch (e) {
+    return fallback;
+  }
+  return fallback;
 }
+window.sanitizeImageUrl = sanitizeImageUrl;
 
-function setAdminPassword(newPass) {
-  localStorage.setItem(ADMIN_STORAGE_KEY_PASS, newPass);
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+window.escapeHtml = escapeHtml;
+
+let _currentAdminSession = null;
+
+async function checkAdminSession() {
+  if (!window.SupabaseDB || !SupabaseDB.isReady() || !SupabaseDB.client?.auth) {
+    _currentAdminSession = null;
+    return false;
+  }
+
+  try {
+    const { data: { session }, error } = await SupabaseDB.client.auth.getSession();
+    if (error || !session || !session.user) {
+      _currentAdminSession = null;
+      return false;
+    }
+
+    // Verify authorized admin role via RPC if available
+    try {
+      const { data: isAdmin, error: rpcErr } = await SupabaseDB.client.rpc('is_admin');
+      if (!rpcErr && isAdmin === false) {
+        await SupabaseDB.logout();
+        _currentAdminSession = null;
+        return false;
+      }
+    } catch (rpcEx) {
+      console.warn("RPC is_admin check note:", rpcEx);
+    }
+
+    _currentAdminSession = session;
+    return true;
+  } catch (err) {
+    console.error("Admin session verification error:", err);
+    _currentAdminSession = null;
+    return false;
+  }
 }
 
 function isAuthenticated() {
-  return sessionStorage.getItem(ADMIN_STORAGE_KEY_AUTH) === "true";
-}
-
-function setAuthenticated(status) {
-  if (status) {
-    sessionStorage.setItem(ADMIN_STORAGE_KEY_AUTH, "true");
-  } else {
-    sessionStorage.removeItem(ADMIN_STORAGE_KEY_AUTH);
-  }
+  return !!(_currentAdminSession && window.SupabaseDB && SupabaseDB.isReady());
 }
 
 const AdminPage = {
@@ -37,9 +87,9 @@ const AdminPage = {
   ordersSearch: '',
 
   async init() {
-    this.checkAuth();
     this.bindEvents();
     await this.initSupabase();
+    await this.checkAuth();
     await this.initCloud();
     if (window.lucide) lucide.createIcons();
   },
@@ -48,6 +98,11 @@ const AdminPage = {
     if (window.SupabaseDB) {
       try {
         await SupabaseDB.init();
+        if (SupabaseDB.client?.auth) {
+          SupabaseDB.client.auth.onAuthStateChange(async (_event, session) => {
+            _currentAdminSession = session;
+          });
+        }
       } catch (e) {
         console.warn("SupabaseDB init note:", e);
       }
@@ -198,11 +253,13 @@ const AdminPage = {
     }
   },
 
-  checkAuth() {
+  async checkAuth() {
     const loginGate = document.getElementById("adminLoginGate");
     const dashboard = document.getElementById("adminDashboard");
 
-    if (isAuthenticated()) {
+    const isAuthed = await checkAdminSession();
+
+    if (isAuthed) {
       if (loginGate) loginGate.classList.add("hidden");
       if (dashboard) dashboard.classList.remove("hidden");
       this.refreshData();
@@ -216,7 +273,6 @@ const AdminPage = {
       const passInput = document.getElementById("adminPasswordInput");
       if (passInput) {
         passInput.value = "";
-        setTimeout(() => passInput.focus(), 100);
       }
     }
   },
@@ -237,13 +293,15 @@ const AdminPage = {
 
   bindEvents() {
     // --- Login Form ---
-    const passInput = document.getElementById("adminPasswordInput");
     const loginForm = document.getElementById("adminLoginForm");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        const pass = passInput ? passInput.value : "";
-        this.handleLogin(pass);
+        const emailInput = document.getElementById("adminEmailInput");
+        const passInput = document.getElementById("adminPasswordInput");
+        const email = emailInput ? emailInput.value.trim() : "";
+        const password = passInput ? passInput.value : "";
+        this.handleLogin({ email, password });
       });
     }
 
@@ -265,10 +323,13 @@ const AdminPage = {
     }
 
     // --- Logout Button ---
-    document.getElementById("btnAdminLogout")?.addEventListener("click", () => {
+    document.getElementById("btnAdminLogout")?.addEventListener("click", async () => {
       if (confirm("هل تريد تسجيل الخروج وقفل لوحة التحكم؟")) {
-        setAuthenticated(false);
-        this.checkAuth();
+        _currentAdminSession = null;
+        if (window.SupabaseDB) {
+          await SupabaseDB.logout();
+        }
+        await this.checkAuth();
         this.showToast("تم تسجيل الخروج", "تم قفل لوحة التحكم بأمان", "info");
       }
     });
@@ -293,40 +354,44 @@ const AdminPage = {
     cancelChangePassBtn?.addEventListener("click", closePassModal);
 
     // Change Password Form submit
-    document.getElementById("changePasswordForm")?.addEventListener("submit", (e) => {
+    document.getElementById("changePasswordForm")?.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const current = document.getElementById("inputCurrentPass")?.value;
       const newP = document.getElementById("inputNewPass")?.value;
       const confirmP = document.getElementById("inputConfirmNewPass")?.value;
       const errBox = document.getElementById("changePassError");
 
-      if (current !== getAdminPassword()) {
+      const showPassError = (msg) => {
         if (errBox) {
-          errBox.textContent = "رمز المرور الحالي غير صحيح!";
+          errBox.textContent = msg;
           errBox.classList.remove("hidden");
         }
-        return;
-      }
+      };
 
-      if (newP.length < 4) {
-        if (errBox) {
-          errBox.textContent = "يجب أن يتكون الرمز الجديد من 4 خانات على الأقل!";
-          errBox.classList.remove("hidden");
-        }
+      if (!newP || newP.length < 6) {
+        showPassError("يجب أن تتكون كلمة المرور الجديدة من 6 خانات على الأقل!");
         return;
       }
 
       if (newP !== confirmP) {
-        if (errBox) {
-          errBox.textContent = "الرمز الجديد وتأكيده غير متطابقين!";
-          errBox.classList.remove("hidden");
-        }
+        showPassError("كلمة المرور الجديدة وتأكيدها غير متطابقين!");
         return;
       }
 
-      setAdminPassword(newP);
-      closePassModal();
-      this.showToast("تم الحفظ بنجاح", "تم تغيير رمز المرور السري بنجاح. احتفظ به بأمان.", "success");
+      if (!window.SupabaseDB || !SupabaseDB.isReady() || !SupabaseDB.client?.auth) {
+        showPassError("خدمة Supabase غير متصلة. لا يمكن تحديث كلمة المرور.");
+        return;
+      }
+
+      try {
+        const { data, error } = await SupabaseDB.client.auth.updateUser({ password: newP });
+        if (error) throw error;
+
+        closePassModal();
+        this.showToast("تم الحفظ بنجاح", "تم تحديث كلمة المرور المشفرة للإدارة في Supabase بنجاح.", "success");
+      } catch (err) {
+        console.error("Change password error:", err);
+        showPassError(err.message || "تعذر تحديث كلمة المرور عبر Supabase.");
+      }
     });
 
     // --- Add new perfume button ---
@@ -575,15 +640,10 @@ const AdminPage = {
     const placeholder = document.getElementById("formProdImagePlaceholder");
     if (!imgEl) return;
 
-    if (src) {
-      imgEl.src = src;
-      imgEl.classList.remove("hidden");
-      if (placeholder) placeholder.classList.add("hidden");
-    } else {
-      imgEl.src = "assets/logo.jpg";
-      imgEl.classList.remove("hidden");
-      if (placeholder) placeholder.classList.add("hidden");
-    }
+    const safeSrc = sanitizeImageUrl(src, "assets/logo.jpg");
+    imgEl.src = safeSrc;
+    imgEl.classList.remove("hidden");
+    if (placeholder) placeholder.classList.add("hidden");
   },
 
   updatePodiumRadioUI() {
@@ -807,10 +867,18 @@ const AdminPage = {
 
       let itemsList = (ord.items || []).map(it => `
         <div class="text-xs flex items-center justify-between py-1 border-b border-neutral-800/40">
-          <span class="text-cream-200 font-amiri">${it.name} <span class="text-neutral-500 font-mono">(${it.size})</span> × <strong class="text-gold-400">${it.quantity}</strong></span>
-          <span class="font-mono text-gold-400 font-bold">${(it.unitPrice * it.quantity).toLocaleString()} ج.م</span>
+          <span class="text-cream-200 font-amiri">${escapeHtml(it.name)} <span class="text-neutral-500 font-mono">(${escapeHtml(it.size)})</span> × <strong class="text-gold-400">${Number(it.quantity) || 1}</strong></span>
+          <span class="font-mono text-gold-400 font-bold">${((Number(it.unitPrice) || 0) * (Number(it.quantity) || 1)).toLocaleString()} ج.م</span>
         </div>
       `).join('');
+
+      const safeOrderId = escapeHtml(ord.orderId || '');
+      const safeDate = escapeHtml(ord.formattedDate || '');
+      const safeFullName = escapeHtml(ord.customer?.fullName || '-');
+      const safePhone = escapeHtml(ord.customer?.phone || '-');
+      const safeAddress = escapeHtml(ord.customer?.address || '-');
+      const safeNotes = ord.customer?.notes ? escapeHtml(ord.customer.notes) : '';
+      const safePaymentMethod = escapeHtml(ord.paymentMethod || '-');
 
       html += `
         <div class="p-6 rounded-2xl bg-obsidian-900/80 border border-neutral-800 space-y-4 text-right transition hover:border-gold-500/30 shadow-lg">
@@ -819,14 +887,14 @@ const AdminPage = {
               <span class="px-3 py-1 rounded-full text-xs font-mono font-bold ${statusBadge.bg} border">
                 ${statusBadge.label}
               </span>
-              <span class="font-mono text-sm font-bold text-gold-400 tracking-wider">#${ord.orderId}</span>
-              <span class="text-[11px] text-neutral-500 font-mono">${ord.formattedDate || ''}</span>
+              <span class="font-mono text-sm font-bold text-gold-400 tracking-wider">#${safeOrderId}</span>
+              <span class="text-[11px] text-neutral-500 font-mono">${safeDate}</span>
             </div>
 
             <!-- Change Status Dropdown -->
             <div class="flex items-center gap-2">
               <span class="text-[11px] text-neutral-400">تحديث الحالة:</span>
-              <select class="order-status-select bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 rounded-lg px-2.5 py-1 focus:border-gold-500" data-order-id="${ord.orderId}">
+              <select class="order-status-select bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 rounded-lg px-2.5 py-1 focus:border-gold-500" data-order-id="${safeOrderId}">
                 <option value="new" ${curStatus === 'new' ? 'selected' : ''}>طلب جديد 🟢</option>
                 <option value="processing" ${curStatus === 'processing' ? 'selected' : ''}>قيد التجهيز 🟡</option>
                 <option value="shipped" ${curStatus === 'shipped' ? 'selected' : ''}>تم الشحن 🚚</option>
@@ -841,10 +909,10 @@ const AdminPage = {
               <h5 class="font-amiri font-bold text-gold-300 text-sm mb-1 flex items-center gap-1.5">
                 <span>👤</span> بيانات العميل
               </h5>
-              <p class="text-cream-100 font-bold text-sm">${ord.customer?.fullName || '-'}</p>
-              <p class="text-neutral-300 font-mono" dir="ltr">📞 <a href="tel:${ord.customer?.phone}" class="hover:text-gold-400 underline">${ord.customer?.phone || '-'}</a></p>
-              <p class="text-neutral-400 leading-relaxed font-sans">📍 ${ord.customer?.address || '-'}</p>
-              ${ord.customer?.notes ? `<p class="text-[11px] text-amber-300/90 italic pt-1 border-t border-neutral-800">ملاحظات: "${ord.customer.notes}"</p>` : ''}
+              <p class="text-cream-100 font-bold text-sm">${safeFullName}</p>
+              <p class="text-neutral-300 font-mono" dir="ltr">📞 <a href="tel:${safePhone}" class="hover:text-gold-400 underline">${safePhone}</a></p>
+              <p class="text-neutral-400 leading-relaxed font-sans">📍 ${safeAddress}</p>
+              ${safeNotes ? `<p class="text-[11px] text-amber-300/90 italic pt-1 border-t border-neutral-800">ملاحظات: "${safeNotes}"</p>` : ''}
             </div>
 
             <div class="space-y-2 p-4 rounded-xl bg-obsidian-950/70 border border-neutral-850 flex flex-col justify-between">
@@ -857,7 +925,7 @@ const AdminPage = {
                 </div>
               </div>
               <div class="pt-2 border-t border-neutral-800 flex justify-between items-center text-xs">
-                <span class="text-neutral-400">طريقة الدفع: <strong class="text-gold-400 font-medium">${ord.paymentMethod || '-'}</strong></span>
+                <span class="text-neutral-400">طريقة الدفع: <strong class="text-gold-400 font-medium">${safePaymentMethod}</strong></span>
                 <span class="font-mono text-base font-bold text-gold-400">${ord.totals?.grandTotal?.toLocaleString() || 0} ج.م</span>
               </div>
             </div>
@@ -964,72 +1032,73 @@ const AdminPage = {
   async handleLogin(credentials) {
     let email = "";
     let password = "";
-    if (typeof credentials === "string") {
-      password = credentials;
-    } else if (credentials) {
-      email = credentials.email || "";
+    if (credentials && typeof credentials === "object") {
+      email = (credentials.email || "").trim();
       password = credentials.password || "";
+    } else if (typeof credentials === "string") {
+      password = credentials;
     }
 
     const errBox = document.getElementById("loginErrorMessage");
     const errText = document.getElementById("loginErrorText");
     const submitBtn = document.getElementById("adminLoginSubmitBtn");
 
-    // 1. If email is provided, attempt Supabase Auth login
-    if (email) {
-      if (!window.SupabaseDB || !SupabaseDB.isReady()) {
-        if (errBox) {
-          if (errText) errText.textContent = "خدمة Supabase غير مهيأة بعد. يرجى إعداد المفاتيح أولاً بالضغط على 'تهيئة Supabase' أو الدخول بالرمز السريع.";
-          errBox.classList.remove("hidden");
-        }
-        return;
+    const showError = (msg) => {
+      if (errBox) {
+        if (errText) errText.textContent = msg;
+        errBox.classList.remove("hidden");
       }
+    };
 
-      try {
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>جاري التحقق عبر السحابة...</span>';
-          if (window.lucide) lucide.createIcons({ root: submitBtn });
-        }
-
-        await SupabaseDB.login(email, password);
-        if (errBox) errBox.classList.add("hidden");
-        setAuthenticated(true);
-        this.checkAuth();
-        this.showToast("تم الدخول بنجاح ⚡", `مرحباً بك في لوحة الإدارة: ${email}`, "success");
-      } catch (err) {
-        console.error("Supabase login error:", err);
-        if (errBox) {
-          if (errText) errText.textContent = err.message || "فشل تسجيل الدخول عبر Supabase. تأكد من صحة البريد وكلمة المرور.";
-          errBox.classList.remove("hidden");
-        }
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i><span>تسجيل الدخول للوحة التحكم</span>';
-          if (window.lucide) lucide.createIcons({ root: submitBtn });
-        }
-      }
+    // 1. Strictly require Email and Password
+    if (!email || !password) {
+      showError("يرجى إدخال البريد الإلكتروني وكلمة المرور للإدارة.");
       return;
     }
 
-    // 2. Fallback to Master Passcode
-    const correctPassword = getAdminPassword();
-    if (password === correctPassword) {
-      if (errBox) errBox.classList.add("hidden");
-      setAuthenticated(true);
-      this.checkAuth();
-      this.showToast("تم الدخول بنجاح", "مرحباً بك في لوحة إدارة بيت المسك", "success");
-    } else {
-      if (errBox) {
-        if (errText) errText.textContent = "رمز المرور غير صحيح. يرجى التحقق والمحاولة مجدداً.";
-        errBox.classList.remove("hidden");
+    // 2. Reject if Supabase is not ready/configured
+    if (!window.SupabaseDB || !SupabaseDB.isReady() || !SupabaseDB.client) {
+      showError("خدمة السحابة Supabase غير مهيأة. لا يمكن تسجيل الدخول إلا عبر حساب مدير مصرح في السحابة.");
+      return;
+    }
+
+    try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>جاري التحقق عبر السحابة...</span>';
+        if (window.lucide) lucide.createIcons({ root: submitBtn });
       }
-      const input = document.getElementById("adminPasswordInput");
-      if (input) {
-        input.classList.add("border-red-500");
-        input.focus();
-        setTimeout(() => input.classList.remove("border-red-500"), 2000);
+
+      // 3. Authenticate via Supabase
+      await SupabaseDB.login(email, password);
+
+      // 4. Check if user is authorized admin
+      try {
+        const { data: isAdmin, error: rpcErr } = await SupabaseDB.client.rpc('is_admin');
+        if (!rpcErr && isAdmin === false) {
+          await SupabaseDB.logout();
+          showError("عفواً، هذا الحساب لا يملك صلاحية إدارة المتجر.");
+          return;
+        }
+      } catch (adminCheckErr) {
+        console.warn("is_admin verification check note:", adminCheckErr);
+      }
+
+      if (errBox) errBox.classList.add("hidden");
+      await this.checkAuth();
+      this.showToast("تم الدخول بنجاح ⚡", `مرحباً بك في لوحة الإدارة: ${email}`, "success");
+    } catch (err) {
+      console.error("Supabase login error:", err);
+      let msg = err.message || "فشل تسجيل الدخول عبر Supabase. تأكد من صحة البريد وكلمة المرور.";
+      if (err.message && (err.message.includes("Invalid login credentials") || err.message.includes("invalid_grant"))) {
+        msg = "بيانات الدخول غير صحيحة. يرجى التحقق من البريد وكلمة المرور.";
+      }
+      showError(msg);
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i><span>تسجيل الدخول للوحة التحكم</span>';
+        if (window.lucide) lucide.createIcons({ root: submitBtn });
       }
     }
   },
@@ -1122,6 +1191,17 @@ const AdminPage = {
             <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> متبقي ${prod.stock} فقط
           </span>`;
 
+      const safeImage = sanitizeImageUrl(prod.image);
+      const safeName = escapeHtml(prod.name);
+      const safeBrand = escapeHtml(prod.brand);
+      const safeSubtitle = escapeHtml(prod.subtitle || "");
+      const safeConcentration = escapeHtml(prod.concentration || "");
+      const safeDesc = escapeHtml(prod.description || "");
+      const safeTopNotes = escapeHtml(topNotes);
+      const safeHeartNotes = escapeHtml(heartNotes);
+      const safeBaseNotes = escapeHtml(baseNotes);
+      const safeId = escapeHtml(prod.id);
+
       html += `
         <div class="glass-card p-5 sm:p-6 rounded-2xl border border-gold-500/20 hover:border-gold-500/40 transition duration-300 relative group flex flex-col justify-between text-right">
           <div>
@@ -1130,13 +1210,13 @@ const AdminPage = {
               <div class="flex items-center gap-3">
                 <div class="w-14 h-18 rounded-xl bg-obsidian-950 border border-gold-500/30 flex items-center justify-center p-1 flex-shrink-0 shadow-inner overflow-hidden">
                   ${prod.image 
-                    ? `<img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-contain rounded-lg">` 
+                    ? `<img src="${safeImage}" alt="${safeName}" class="w-full h-full object-contain rounded-lg">` 
                     : generateBottleSvg(prod, 46, 60)}
                 </div>
                 <div>
-                  <span class="text-[10px] text-gold-400 font-semibold font-sans block">${prod.brand}</span>
-                  <h3 class="font-amiri text-xl font-bold text-cream-100 tracking-wide">${prod.name}</h3>
-                  <p class="text-xs text-neutral-400 mt-0.5">${prod.subtitle} • <span class="text-gold-300">${prod.concentration}</span></p>
+                  <span class="text-[10px] text-gold-400 font-semibold font-sans block">${safeBrand}</span>
+                  <h3 class="font-amiri text-xl font-bold text-cream-100 tracking-wide">${safeName}</h3>
+                  <p class="text-xs text-neutral-400 mt-0.5">${safeSubtitle} • <span class="text-gold-300">${safeConcentration}</span></p>
                 </div>
               </div>
 
@@ -1148,14 +1228,14 @@ const AdminPage = {
 
             <!-- Description -->
             <p class="text-xs text-neutral-300 leading-relaxed font-light mb-4 line-clamp-2">
-              ${prod.description}
+              ${safeDesc}
             </p>
 
             <!-- Notes summary -->
             <div class="p-3 rounded-xl bg-obsidian-950/80 border border-neutral-800 text-[11px] space-y-1 mb-4">
-              <div><strong class="text-gold-400 font-bold">القمة:</strong> <span class="text-neutral-300">${topNotes}</span></div>
-              <div><strong class="text-gold-400 font-bold">القلب:</strong> <span class="text-neutral-300">${heartNotes}</span></div>
-              <div><strong class="text-gold-400 font-bold">القاعدة:</strong> <span class="text-neutral-300">${baseNotes}</span></div>
+              <div><strong class="text-gold-400 font-bold">القمة:</strong> <span class="text-neutral-300">${safeTopNotes}</span></div>
+              <div><strong class="text-gold-400 font-bold">القلب:</strong> <span class="text-neutral-300">${safeHeartNotes}</span></div>
+              <div><strong class="text-gold-400 font-bold">القاعدة:</strong> <span class="text-neutral-300">${safeBaseNotes}</span></div>
             </div>
 
             <!-- Price Breakdown -->
@@ -1179,11 +1259,11 @@ const AdminPage = {
 
           <!-- Actions -->
           <div class="flex items-center gap-2 pt-3 border-t border-neutral-800/80">
-            <button class="btn-edit-perfume flex-1 py-2 px-3 rounded-xl border border-gold-500/40 bg-gold-500/10 text-gold-400 hover:bg-gold-500 hover:text-obsidian-950 text-xs font-bold transition flex items-center justify-center gap-1.5" data-id="${prod.id}">
+            <button class="btn-edit-perfume flex-1 py-2 px-3 rounded-xl border border-gold-500/40 bg-gold-500/10 text-gold-400 hover:bg-gold-500 hover:text-obsidian-950 text-xs font-bold transition flex items-center justify-center gap-1.5" data-id="${safeId}">
               <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
               <span>تعديل المواصفات</span>
             </button>
-            <button class="btn-delete-perfume p-2 rounded-xl border border-neutral-800 text-neutral-500 hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/10 transition" data-id="${prod.id}" title="حذف العطر">
+            <button class="btn-delete-perfume p-2 rounded-xl border border-neutral-800 text-neutral-500 hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/10 transition" data-id="${safeId}" title="حذف العطر">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -1365,9 +1445,13 @@ const AdminPage = {
     const gender = isWomen ? "حريمي ساحر (Pour Femme)" : "رجالي فاخر (Pour Homme)";
     const podiumTitle = isWomen ? "الجناح النسائي 🌸" : "الجناح الرجالي 👑";
 
-    const image = (this.currentUploadedImage || document.getElementById("formProdImageUrlInput")?.value || existing.image || "assets/logo.jpg").trim();
-
     const existing = Storage.getProductById(id) || {};
+    const image = sanitizeImageUrl((
+      this.currentUploadedImage ||
+      document.getElementById("formProdImageUrlInput")?.value ||
+      existing.image ||
+      "assets/logo.jpg"
+    ).trim());
 
     const productObj = {
       ...existing,
@@ -1625,16 +1709,20 @@ const AdminPage = {
       const label = c.label || `خصم ${value} ج.م`;
       const dateStr = c.created_at ? new Date(c.created_at).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric', year: 'numeric' }) : 'مسجل';
 
+      const safeCode = escapeHtml(code);
+      const safeLabel = escapeHtml(label);
+      const safeCodeParam = encodeURIComponent(code);
+
       return `
         <tr class="hover:bg-obsidian-900/60 transition group text-right">
           <td class="py-3 px-4 font-mono font-bold text-cream-100">
             <div class="flex items-center gap-2">
               <span class="px-2.5 py-1 rounded-lg bg-gold-500/10 border border-gold-500/30 text-gold-300 tracking-wider font-mono text-xs uppercase">
-                ${code}
+                ${safeCode}
               </span>
               <button 
                 type="button" 
-                onclick="window.AdminPage.copyCouponCode('${code}')" 
+                onclick="window.AdminPage.copyCouponCode(decodeURIComponent('${safeCodeParam}'))" 
                 class="text-neutral-500 hover:text-gold-400 p-1 transition" 
                 title="نسخ الكود"
               >
@@ -1654,13 +1742,13 @@ const AdminPage = {
           </td>
 
           <td class="py-3 px-4 text-xs text-neutral-300 font-medium max-w-xs truncate">
-            ${label}
+            ${safeLabel}
           </td>
 
           <td class="py-3 px-4 text-center">
             <button 
               type="button" 
-              onclick="window.AdminPage.toggleCoupon('${code}', ${isActive})" 
+              onclick="window.AdminPage.toggleCoupon(decodeURIComponent('${safeCodeParam}'), ${isActive})" 
               class="px-2.5 py-1 rounded-full text-[11px] font-bold transition inline-flex items-center justify-center gap-1 mx-auto cursor-pointer ${
                 isActive 
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30' 
@@ -1679,7 +1767,7 @@ const AdminPage = {
           <td class="py-3 px-4 text-left">
             <button 
               type="button" 
-              onclick="window.AdminPage.deleteCoupon('${code}')" 
+              onclick="window.AdminPage.deleteCoupon(decodeURIComponent('${safeCodeParam}'))" 
               class="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition inline-flex items-center gap-1 cursor-pointer"
               title="حذف الكود نهائياً"
             >
@@ -1839,8 +1927,8 @@ const AdminPage = {
     toast.innerHTML = `
       <span class="text-base flex-shrink-0">${icon}</span>
       <div class="flex-1">
-        <h5 class="font-amiri font-bold text-cream-100 text-sm">${title}</h5>
-        <p class="text-neutral-300 mt-0.5 leading-relaxed font-sans">${message}</p>
+        <h5 class="font-amiri font-bold text-cream-100 text-sm">${escapeHtml(title)}</h5>
+        <p class="text-neutral-300 mt-0.5 leading-relaxed font-sans">${escapeHtml(message)}</p>
       </div>
       <button class="text-neutral-500 hover:text-cream-100 p-0.5" onclick="this.parentElement.remove()">✕</button>
     `;

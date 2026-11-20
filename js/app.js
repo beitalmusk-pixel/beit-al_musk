@@ -3,6 +3,55 @@
  * Application Controller (Arabic Edition)
  */
 
+/**
+ * URL validation & sanitization function
+ * Explicitly rejects javascript:, vbscript:, data:text/html, quotes, script tags, angle brackets, or malformed URLs
+ */
+function sanitizeImageUrl(rawUrl, fallback = "assets/logo.jpg") {
+  if (!rawUrl || typeof rawUrl !== "string") return fallback;
+  const trimmed = rawUrl.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("vbscript:") || lower.startsWith("data:text/html")) {
+    return fallback;
+  }
+  // Allow relative paths starting with assets/ or / or ./
+  if (trimmed.startsWith("assets/") || trimmed.startsWith("./assets/") || trimmed.startsWith("/")) {
+    // Disallow quotes, script tags or angle brackets
+    if (/[<>"'\s]/.test(trimmed)) return fallback;
+    return trimmed;
+  }
+  // Allow data:image/... base64 for uploaded local previews
+  if (trimmed.startsWith("data:image/")) {
+    if (trimmed.includes(";") && trimmed.includes("base64,")) return trimmed;
+    return fallback;
+  }
+  // Validate absolute HTTP/HTTPS URL
+  try {
+    const parsed = new URL(trimmed, window.location.origin);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+  } catch (e) {
+    return fallback;
+  }
+  return fallback;
+}
+window.sanitizeImageUrl = sanitizeImageUrl;
+
+/**
+ * HTML escape function to prevent harmful HTML / XSS injection
+ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+window.escapeHtml = escapeHtml;
+
 class LuxuryApp {
   constructor() {
     this.showroom = null;
@@ -518,8 +567,8 @@ class LuxuryApp {
       badge.style.animationDelay = `${idx * 0.07}s, ${0.75 + idx * 0.07}s`;
 
       badge.innerHTML = `
-        <span class="ingredient-icon-halo">${item.icon || '✨'}</span>
-        <span>${item.name}</span>
+        <span class="ingredient-icon-halo">${escapeHtml(item.icon || '✨')}</span>
+        <span>${escapeHtml(item.name)}</span>
       `;
 
       badge.addEventListener("click", (e) => {
@@ -666,8 +715,8 @@ class LuxuryApp {
 
     // High-Resolution Authentic Product Artwork
     if (realImgEl && product.image) {
-      realImgEl.src = product.image;
-      realImgEl.alt = `${product.name} - بيت المسك`;
+      realImgEl.src = sanitizeImageUrl(product.image);
+      realImgEl.alt = `${escapeHtml(product.name)} - بيت المسك`;
     }
 
     // 3D Vector Alternative
@@ -766,15 +815,15 @@ class LuxuryApp {
         const role = typeof note === 'object' ? (note.role || 'نفحة عطرية أصلية') : 'نفحة عطرية أصلية';
 
         return `
-          <div class="note-ingredient-card" style="animation-delay: ${idx * 0.08}s" data-note-name="${name}">
+          <div class="note-ingredient-card" style="animation-delay: ${idx * 0.08}s" data-note-name="${escapeHtml(name)}">
             <div class="flex items-center gap-2">
-              <span class="text-xl flex-shrink-0">${icon}</span>
+              <span class="text-xl flex-shrink-0">${escapeHtml(icon)}</span>
               <div class="flex flex-col min-w-0">
-                <span class="font-amiri font-bold text-cream-100 text-xs truncate">${name}</span>
-                ${en ? `<span class="text-[9px] font-mono text-gold-400/90 truncate">${en}</span>` : ''}
+                <span class="font-amiri font-bold text-cream-100 text-xs truncate">${escapeHtml(name)}</span>
+                ${en ? `<span class="text-[9px] font-mono text-gold-400/90 truncate">${escapeHtml(en)}</span>` : ''}
               </div>
             </div>
-            <div class="text-[9.5px] text-neutral-400 mt-1 font-sans line-clamp-1">${role}</div>
+            <div class="text-[9.5px] text-neutral-400 mt-1 font-sans line-clamp-1">${escapeHtml(role)}</div>
           </div>
         `;
       }).join('');
@@ -1035,13 +1084,20 @@ class LuxuryApp {
         ? `<span class="line-through text-[10px] text-neutral-500 mr-1">${p30} ج.م</span><span class="text-sm font-bold text-emerald-400">${discountedP30} ج.م</span>`
         : `<span class="text-sm font-bold text-gold-400 mr-1">${p30} ج.م</span>`;
 
+      const safeId = escapeHtml(prod.id);
+      const safeBadge = escapeHtml(prod.badge || prod.category || "");
+      const safeImage = sanitizeImageUrl(prod.image);
+      const safeName = escapeHtml(prod.name);
+      const safeBrand = escapeHtml(prod.brand);
+      const safeDesc = escapeHtml(prod.description);
+
       html += `
-        <div class="perfume-card group relative rounded-2xl bg-obsidian-900/60 border border-gold-500/15 backdrop-blur-xl p-6 transition-all duration-500 hover:border-gold-500/50 hover:shadow-2xl hover:shadow-gold-500/15 flex flex-col justify-between text-right" data-product-id="${prod.id}">
+        <div class="perfume-card group relative rounded-2xl bg-obsidian-900/60 border border-gold-500/15 backdrop-blur-xl p-6 transition-all duration-500 hover:border-gold-500/50 hover:shadow-2xl hover:shadow-gold-500/15 flex flex-col justify-between text-right" data-product-id="${safeId}">
           
           <!-- Top Badge & Price Range -->
           <div class="flex justify-between items-start mb-4">
             <span class="px-3 py-1 rounded-full text-[11px] font-amiri font-bold bg-gold-500/10 text-gold-400 border border-gold-500/25">
-              ${prod.badge || prod.category}
+              ${safeBadge}
             </span>
             <div class="text-left font-mono">
               <span class="text-[10px] text-neutral-400">يبدأ من</span>
@@ -1050,19 +1106,19 @@ class LuxuryApp {
           </div>
 
           <!-- Authentic Luxury Photography Visual -->
-          <div class="card-visual-wrapper cursor-pointer py-2 flex items-center justify-center relative overflow-hidden transition-transform duration-500 group-hover:scale-105" data-view-product="${prod.id}">
+          <div class="card-visual-wrapper cursor-pointer py-2 flex items-center justify-center relative overflow-hidden transition-transform duration-500 group-hover:scale-105" data-view-product="${safeId}">
             <div class="absolute inset-0 bg-radial-glow opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" style="background: radial-gradient(circle, ${prod.visual?.spotlight || 'rgba(212,175,55,0.2)'} 0%, transparent 70%);"></div>
-            <img src="${prod.image || 'assets/logo.jpg'}" alt="${prod.name}" loading="lazy" decoding="async" class="max-h-[220px] w-auto object-contain rounded-xl shadow-lg border border-gold-500/20 group-hover:border-gold-500/50 transition">
+            <img src="${safeImage}" alt="${safeName}" loading="lazy" decoding="async" class="max-h-[220px] w-auto object-contain rounded-xl shadow-lg border border-gold-500/20 group-hover:border-gold-500/50 transition">
           </div>
 
           <!-- Product Info -->
           <div class="mt-4">
-            <div class="text-[11px] font-sans text-gold-500/80 mb-1 font-semibold">${prod.brand}</div>
-            <h3 class="font-amiri text-2xl text-cream-100 font-bold tracking-wide group-hover:text-gold-300 transition duration-300 cursor-pointer" data-view-product="${prod.id}">
-              ${prod.name}
+            <div class="text-[11px] font-sans text-gold-500/80 mb-1 font-semibold">${safeBrand}</div>
+            <h3 class="font-amiri text-2xl text-cream-100 font-bold tracking-wide group-hover:text-gold-300 transition duration-300 cursor-pointer" data-view-product="${safeId}">
+              ${safeName}
             </h3>
             <p class="text-xs text-neutral-400 line-clamp-2 mt-2 font-light leading-relaxed">
-              ${prod.description}
+              ${safeDesc}
             </p>
 
             <!-- Fragrance Notes Preview with Icons -->
@@ -1072,8 +1128,8 @@ class LuxuryApp {
                 const icon = typeof n === 'object' ? (n.icon || '✨') : '✨';
                 return `
                   <span class="text-[10px] px-2 py-0.5 rounded-full bg-obsidian-950 text-neutral-300 border border-neutral-800 flex items-center gap-1">
-                    <span>${icon}</span>
-                    <span>${name}</span>
+                    <span>${escapeHtml(icon)}</span>
+                    <span>${escapeHtml(name)}</span>
                   </span>
                 `;
               }).join('')}
@@ -1082,8 +1138,8 @@ class LuxuryApp {
                 const icon = typeof n === 'object' ? (n.icon || '🌸') : '🌸';
                 return `
                   <span class="text-[10px] px-2 py-0.5 rounded-full bg-obsidian-950 text-gold-400/90 border border-gold-500/25 flex items-center gap-1">
-                    <span>${icon}</span>
-                    <span>${name}</span>
+                    <span>${escapeHtml(icon)}</span>
+                    <span>${escapeHtml(name)}</span>
                   </span>
                 `;
               }).join('')}
@@ -1091,7 +1147,7 @@ class LuxuryApp {
 
             <!-- Size Selector Pills in Card -->
             <div class="mt-5 pt-4 border-t border-neutral-800/80 flex items-center justify-between gap-2" dir="ltr">
-              <div class="flex items-center gap-1.5 flex-1" id="cardSizes-${prod.id}">
+              <div class="flex items-center gap-1.5 flex-1" id="cardSizes-${safeId}">
                 <button class="card-size-opt flex-1 py-1 px-1 text-center rounded-lg border border-neutral-700 bg-obsidian-950 text-[10px] font-mono text-neutral-400 hover:border-gold-500" data-card-size="30ml" data-price="${p30}">30ml</button>
                 <button class="card-size-opt active flex-1 py-1 px-1 text-center rounded-lg border border-gold-500 bg-gold-500/20 text-[10px] font-mono text-cream-100 font-bold" data-card-size="50ml" data-price="${p50}">50ml</button>
                 <button class="card-size-opt flex-1 py-1 px-1 text-center rounded-lg border border-neutral-700 bg-obsidian-950 text-[10px] font-mono text-neutral-400 hover:border-gold-500" data-card-size="100ml" data-price="${p100}">100ml</button>
@@ -1100,12 +1156,12 @@ class LuxuryApp {
 
             <!-- Action Buttons: View Details & Quick Add -->
             <div class="mt-4 flex gap-2">
-              <button class="card-details-btn flex-1 py-2.5 px-3 rounded-xl border border-gold-500/40 text-gold-400 text-xs font-bold tracking-wider hover:bg-gold-500/10 transition text-center" data-view-product="${prod.id}">
+              <button class="card-details-btn flex-1 py-2.5 px-3 rounded-xl border border-gold-500/40 text-gold-400 text-xs font-bold tracking-wider hover:bg-gold-500/10 transition text-center" data-view-product="${safeId}">
                 عرض المواصفات والنفحات
               </button>
-              <button class="card-quick-add-btn gold-gradient-btn px-4 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold tracking-wider transition flex items-center justify-center gap-1.5" data-add-prod="${prod.id}">
+              <button class="card-quick-add-btn gold-gradient-btn px-4 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold tracking-wider transition flex items-center justify-center gap-1.5" data-add-prod="${safeId}">
                 <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
-                <span class="card-price-display font-mono" id="cardPriceDisplay-${prod.id}">${p50} ج.م</span>
+                <span class="card-price-display font-mono" id="cardPriceDisplay-${safeId}">${p50} ج.م</span>
               </button>
             </div>
           </div>
@@ -1195,7 +1251,7 @@ class LuxuryApp {
       if (product.image) {
         artContainer.innerHTML = `
           <div class="relative w-full flex items-center justify-center p-3">
-            <img src="${product.image}" alt="${product.name}" loading="lazy" decoding="async" class="max-h-[340px] w-auto object-contain rounded-2xl shadow-2xl border border-gold-500/30">
+            <img src="${sanitizeImageUrl(product.image)}" alt="${escapeHtml(product.name)}" loading="lazy" decoding="async" class="max-h-[340px] w-auto object-contain rounded-2xl shadow-2xl border border-gold-500/30">
           </div>
         `;
       } else {
@@ -1217,7 +1273,7 @@ class LuxuryApp {
     if (accordsEl && product.accords) {
       accordsEl.innerHTML = product.accords.map(acc => `
         <span class="px-3 py-1 rounded-full text-xs font-amiri font-bold bg-neutral-900 border border-gold-500/20 text-gold-400">
-          ${acc}
+          ${escapeHtml(acc)}
         </span>
       `).join('');
     }
@@ -1364,8 +1420,8 @@ class LuxuryApp {
     toast.innerHTML = `
       <span class="text-base flex-shrink-0">${icon}</span>
       <div class="flex-1">
-        <h5 class="font-amiri font-bold text-cream-100 tracking-wide text-sm">${title}</h5>
-        <p class="text-neutral-300 mt-0.5 leading-relaxed font-sans">${message}</p>
+        <h5 class="font-amiri font-bold text-cream-100 tracking-wide text-sm">${escapeHtml(title)}</h5>
+        <p class="text-neutral-300 mt-0.5 leading-relaxed font-sans">${escapeHtml(message)}</p>
       </div>
       <button class="text-neutral-500 hover:text-cream-100 p-0.5 transition" onclick="this.parentElement.remove()">
         ✕
@@ -1447,10 +1503,10 @@ class LuxuryApp {
       const icon = prod.podium === "women" ? "🌸" : "👑";
 
       html += `
-        <button class="mobile-bottle-tab flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs whitespace-nowrap transition-all duration-300 flex-shrink-0 ${activeClass}" data-bottle-idx="${idx}" data-product-id="${prod.id}">
-          <span class="w-2.5 h-2.5 rounded-full border border-gold-500/40 inline-block shadow-sm" style="background-color: ${prod.visual?.liquidColor || prod.liquidColor || '#d4af37'}"></span>
+        <button class="mobile-bottle-tab flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs whitespace-nowrap transition-all duration-300 flex-shrink-0 ${activeClass}" data-bottle-idx="${idx}" data-product-id="${escapeHtml(prod.id)}">
+          <span class="w-2.5 h-2.5 rounded-full border border-gold-500/40 inline-block shadow-sm" style="background-color: ${escapeHtml(prod.visual?.liquidColor || prod.liquidColor || '#d4af37')}"></span>
           <span class="text-xs">${icon}</span>
-          <span class="font-amiri font-bold">${prod.name}</span>
+          <span class="font-amiri font-bold">${escapeHtml(prod.name)}</span>
         </button>
       `;
     });

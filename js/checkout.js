@@ -222,8 +222,12 @@ const Checkout = {
     let itemsHtml = "";
     cart.forEach(item => {
       const prod = Storage.getProductById(item.productId);
+      const safeImage = prod && prod.image ? sanitizeImageUrl(prod.image) : "assets/logo.jpg";
+      const safeName = escapeHtml(item.name);
+      const safeSize = escapeHtml(item.size);
+
       const thumbMarkup = (prod && prod.image) 
-        ? `<img src="${prod.image}" alt="${item.name}" class="w-full h-full object-contain">`
+        ? `<img src="${safeImage}" alt="${safeName}" class="w-full h-full object-contain">`
         : `<span class="text-[10px]">⚜️</span>`;
 
       itemsHtml += `
@@ -236,8 +240,8 @@ const Checkout = {
               ${item.quantity}
             </span>
             <div>
-              <p class="font-amiri text-cream-100 font-bold text-sm">${item.name}</p>
-              <p class="text-[10px] text-neutral-400 font-sans">${item.size} • ${item.unitPrice.toLocaleString()} ج.م للحبة</p>
+              <p class="font-amiri text-cream-100 font-bold text-sm">${safeName}</p>
+              <p class="text-[10px] text-neutral-400 font-sans">${safeSize} • ${item.unitPrice.toLocaleString()} ج.م للحبة</p>
             </div>
           </div>
           <span class="font-bold text-gold-400 font-mono">${(item.unitPrice * item.quantity).toLocaleString()} ج.م</span>
@@ -383,13 +387,19 @@ const Checkout = {
       try {
         // 1. Save in Supabase first (Database sequence number & Inventory deduction)
         if (window.SupabaseDB && SupabaseDB.isReady()) {
-          try {
-            const dbRes = await SupabaseDB.createOrder(orderData);
-            if (dbRes && dbRes.orderId) {
-              orderData.orderId = dbRes.orderId;
+          const dbRes = await SupabaseDB.createOrder(orderData);
+          if (!dbRes || !dbRes.success) {
+            const errorMsg = dbRes?.error || "تعذر التحقق من صحة الأسعار مع خادم المتجر. تم إلغاء العملية لحماية بيانات الطلب.";
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = originalText;
             }
-          } catch (supErr) {
-            console.warn("Supabase createOrder fallback note:", supErr);
+            if (window.app) window.app.showToast("خطأ في قيد الطلب", errorMsg, "error");
+            alert(errorMsg);
+            return;
+          }
+          if (dbRes && dbRes.orderId) {
+            orderData.orderId = dbRes.orderId;
           }
         }
 
@@ -535,15 +545,20 @@ ${itemsListText}─────────────────────�
 
     let itemsTableRows = "";
     order.items.forEach((item, index) => {
+      const safeName = escapeHtml(item.name);
+      const safeBrand = escapeHtml(item.brand);
+      const safeSubtitle = escapeHtml(item.subtitle || 'Extrait de Parfum');
+      const safeSize = escapeHtml(item.size);
+
       itemsTableRows += `
         <tr class="border-b border-neutral-800 text-xs text-cream-200">
           <td class="py-3 px-4 font-mono text-neutral-400 text-center">${String(index + 1).padStart(2, '0')}</td>
           <td class="py-3 px-4 text-right">
-            <span class="font-amiri font-bold text-cream-100 text-sm block">${item.name}</span>
-            <span class="block text-[11px] text-neutral-400 font-sans">${item.brand} • ${item.subtitle || 'Extrait de Parfum'}</span>
+            <span class="font-amiri font-bold text-cream-100 text-sm block">${safeName}</span>
+            <span class="block text-[11px] text-neutral-400 font-sans">${safeBrand} • ${safeSubtitle}</span>
           </td>
           <td class="py-3 px-4 text-center">
-            <span class="px-2.5 py-0.5 rounded text-[10px] font-mono bg-neutral-900 border border-gold-500/30 text-gold-400 font-bold">${item.size}</span>
+            <span class="px-2.5 py-0.5 rounded text-[10px] font-mono bg-neutral-900 border border-gold-500/30 text-gold-400 font-bold">${safeSize}</span>
           </td>
           <td class="py-3 px-4 text-center font-mono font-bold">${item.quantity}</td>
           <td class="py-3 px-4 text-left font-mono">${item.unitPrice.toLocaleString()} ج.م</td>
@@ -553,6 +568,13 @@ ${itemsListText}─────────────────────�
     });
 
     const deliveryFormatted = "50 ج (شحن ثابت)";
+    const safeOrderIdClean = escapeHtml(order.orderId.replace("MUSK-", ""));
+    const safeDate = escapeHtml(order.formattedDate);
+    const safeCustName = escapeHtml(order.customer?.fullName || "");
+    const safeCustPhone = escapeHtml(order.customer?.phone || "");
+    const safeCustAddress = escapeHtml(order.customer?.address || "");
+    const safeCustNotes = order.customer?.notes ? escapeHtml(order.customer.notes) : "";
+    const safePayMethod = escapeHtml(order.paymentMethod || "");
 
     invoiceContent.innerHTML = `
       <div class="luxury-invoice-sheet bg-obsidian-950 p-8 md:p-12 text-cream-100 border border-gold-500/30 shadow-2xl relative overflow-hidden max-w-3xl mx-auto rounded-2xl text-right" dir="rtl">
@@ -574,8 +596,8 @@ ${itemsListText}─────────────────────�
             <div class="inline-block px-3 py-1 rounded border border-gold-500/30 bg-gold-500/10 text-gold-400 text-xs font-mono font-bold tracking-wider mb-2">
               فاتورة رسمية معتمدة
             </div>
-            <p class="font-mono text-sm text-cream-100 font-bold">#INV-${order.orderId.replace("MUSK-", "")}</p>
-            <p class="text-xs text-neutral-400 mt-1">تاريخ الإصدار: ${order.formattedDate}</p>
+            <p class="font-mono text-sm text-cream-100 font-bold">#INV-${safeOrderIdClean}</p>
+            <p class="text-xs text-neutral-400 mt-1">تاريخ الإصدار: ${safeDate}</p>
           </div>
         </div>
 
@@ -584,9 +606,9 @@ ${itemsListText}─────────────────────�
             <h4 class="font-amiri font-bold text-gold-400 text-sm mb-2 flex items-center gap-1.5">
               <span>👤</span> بيانات العميل الكريم
             </h4>
-            <p class="font-bold text-base text-cream-100 mb-1 font-amiri">${order.customer.fullName}</p>
-            <p class="text-neutral-300 font-mono mb-1">📞 ${order.customer.phone}</p>
-            <p class="text-neutral-400 leading-relaxed font-sans">📍 ${order.customer.address}</p>
+            <p class="font-bold text-base text-cream-100 mb-1 font-amiri">${safeCustName}</p>
+            <p class="text-neutral-300 font-mono mb-1">📞 ${safeCustPhone}</p>
+            <p class="text-neutral-400 leading-relaxed font-sans">📍 ${safeCustAddress}</p>
           </div>
 
           <div class="p-4 rounded-xl bg-obsidian-900/60 border border-neutral-800 flex flex-col justify-between">
@@ -594,10 +616,10 @@ ${itemsListText}─────────────────────�
               <h4 class="font-amiri font-bold text-gold-400 text-sm mb-2 flex items-center gap-1.5">
                 <span>📦</span> التوصيل وطريقة الدفع
               </h4>
-              <p class="text-neutral-300"><span class="text-neutral-500">طريقة الدفع:</span> ${order.paymentMethod}</p>
+              <p class="text-neutral-300"><span class="text-neutral-500">طريقة الدفع:</span> ${safePayMethod}</p>
               <p class="text-neutral-300 mt-1"><span class="text-neutral-500">نوع الخدمة:</span> شحن VIP مبرد ومؤمن بالكامل من بيت المسك</p>
             </div>
-            ${order.customer.notes ? `<p class="text-[11px] text-gold-300/80 italic mt-3 pt-2 border-t border-neutral-800">ملاحظات: "${order.customer.notes}"</p>` : ''}
+            ${safeCustNotes ? `<p class="text-[11px] text-gold-300/80 italic mt-3 pt-2 border-t border-neutral-800">ملاحظات: "${safeCustNotes}"</p>` : ''}
           </div>
         </div>
 

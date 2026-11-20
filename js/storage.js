@@ -3,6 +3,48 @@
  * Persistent storage for Products, Shopping Cart, Orders & Promos (Bayt Al Musk Edition)
  */
 
+// Global security utilities (XSS & URL sanitization)
+function sanitizeImageUrl(rawUrl, fallback = "assets/logo.jpg") {
+  if (!rawUrl || typeof rawUrl !== "string") return fallback;
+  const trimmed = rawUrl.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("vbscript:") || lower.startsWith("data:text/html")) {
+    return fallback;
+  }
+  // Allow relative paths starting with assets/ or / or ./
+  if (trimmed.startsWith("assets/") || trimmed.startsWith("./assets/") || trimmed.startsWith("/")) {
+    if (/[<>"'\s]/.test(trimmed)) return fallback;
+    return trimmed;
+  }
+  // Allow data:image/... base64 for uploaded local previews
+  if (trimmed.startsWith("data:image/")) {
+    if (trimmed.includes(";") && trimmed.includes("base64,")) return trimmed;
+    return fallback;
+  }
+  // Validate absolute HTTP/HTTPS URL
+  try {
+    const parsed = new URL(trimmed, window.location.origin);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+  } catch (e) {
+    return fallback;
+  }
+  return fallback;
+}
+window.sanitizeImageUrl = sanitizeImageUrl;
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+window.escapeHtml = escapeHtml;
+
 const STORAGE_KEYS = {
   PRODUCTS: "beit_al_musk_official_catalog_v3",
   CART: "beit_al_musk_cart_v3",

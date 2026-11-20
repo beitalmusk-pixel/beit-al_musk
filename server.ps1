@@ -12,10 +12,13 @@ try {
         $request = $context.Request
         $response = $context.Response
 
-        # Add CORS & caching headers
+        # Add CORS & caching & security headers
         $response.AddHeader("Access-Control-Allow-Origin", "*")
         $response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         $response.AddHeader("Access-Control-Allow-Headers", "*")
+        $response.AddHeader("X-Content-Type-Options", "nosniff")
+        $response.AddHeader("X-Frame-Options", "SAMEORIGIN")
+        $response.AddHeader("Referrer-Policy", "strict-origin-when-cross-origin")
 
         if ($request.HttpMethod -eq "OPTIONS") {
             $response.StatusCode = 200

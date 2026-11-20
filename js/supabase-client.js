@@ -78,6 +78,17 @@ const SupabaseDB = {
     return session;
   },
 
+  async isAdmin() {
+    if (!this.isReady()) return false;
+    try {
+      const { data, error } = await this.client.rpc('is_admin');
+      if (error) return false;
+      return !!data;
+    } catch {
+      return false;
+    }
+  },
+
   // --- Perfumes & Catalog (Real-time Cloud Sync) ---
   async fetchPerfumes() {
     if (!this.isReady()) {
@@ -190,65 +201,164 @@ const SupabaseDB = {
     }
   },
 
-  // --- Orders & Checkout (Server Sequence & Inventory Deduction) ---
+  // --- Orders & Checkout (Anti-Price-Tampering & Atomic Server Verification) ---
   async createOrder(orderPayload) {
-    // 1. Local backup
-    Storage.saveOrder(orderPayload);
-
     if (!this.isReady()) {
-      return { success: true, cloud: false, orderId: orderPayload.orderId };
+      return {
+        success: false,
+        error: "تعذر التحقق من صحة الأسعار مع خادم المتجر. خدمة السحابة Supabase غير متصلة. تم إلغاء العملية لحماية بيانات الطلب."
+      };
     }
 
     try {
-      // If server calculation function exists, calculate securely
-      let secureTotals = orderPayload.totals;
+      const customer = orderPayload.customer;
+      const items = orderPayload.items;
+      const couponCode = orderPayload.totals?.promo?.code || orderPayload.couponCode || null;
+      const paymentMethod = orderPayload.paymentMethodKey || orderPayload.paymentMethod || 'cod';
+      const notes = orderPayload.customer?.notes || orderPayload.notes || null;
+
+      // 1. Primary Secure Path: RPC create_verified_order (Atomic Server Calculation & Inventory Deduction)
+      let verifiedOrder = null;
+      let rpcError = null;
+
       try {
-        const { data: calcResult, error: calcErr } = await this.client
-          .rpc('calculate_secure_order', {
-            p_items: orderPayload.items,
-            p_coupon_code: orderPayload.totals?.promo?.code || null
-          });
-        if (!calcErr && calcResult) {
-          secureTotals = {
-            subtotal: calcResult.subtotal,
-            delivery: calcResult.delivery,
-            discount: calcResult.discount,
-            grandTotal: calcResult.grandTotal
-          };
+        const { data, error } = await this.client.rpc('create_verified_order', {
+          p_customer: customer,
+          p_items: items,
+          p_coupon_code: couponCode,
+          p_payment_method: paymentMethod,
+          p_notes: notes
+        });
+
+        if (!error && data && data.success) {
+          verifiedOrder = data;
+        } else if (error) {
+          rpcError = error;
+          console.warn("RPC create_verified_order returned error:", error);
         }
-      } catch (calcE) {
-        console.warn("RPC calculate_secure_order fallback:", calcE);
+      } catch (rpcEx) {
+        rpcError = rpcEx;
+        console.warn("RPC create_verified_order invocation error:", rpcEx);
       }
 
+      // If create_verified_order succeeded:
+      if (verifiedOrder) {
+        const generatedNumber = verifiedOrder.order_number || verifiedOrder.orderId;
+        orderPayload.orderId = generatedNumber;
+        if (verifiedOrder.totals) {
+          orderPayload.totals = verifiedOrder.totals;
+        }
+
+        // Cache locally only after verified server creation
+        try {
+          Storage.saveOrder(orderPayload);
+        } catch (e) {
+          console.warn("Storage saveOrder cache note:", e);
+        }
+
+        return {
+          success: true,
+          cloud: true,
+          orderId: generatedNumber,
+          dbId: verifiedOrder.dbId || verifiedOrder.id,
+          verified: true,
+          totals: verifiedOrder.totals
+        };
+      }
+
+      // If create_verified_order failed due to validation/stock/coupon error, ABORT immediately!
+      const isMissingRpc = rpcError && (
+        (rpcError.message && (rpcError.message.includes("function") || rpcError.message.includes("does not exist") || rpcError.message.includes("schema cache"))) ||
+        rpcError.code === "PGRST202" ||
+        rpcError.code === "42883"
+      );
+
+      if (rpcError && !isMissingRpc) {
+        console.error("Order rejected by create_verified_order:", rpcError);
+        return {
+          success: false,
+          error: rpcError.message || "تعذر التحقق من صحة الأسعار مع خادم المتجر. تم إلغاء العملية لحماية بيانات الطلب."
+        };
+      }
+
+      // 2. Fallback Path: If create_verified_order is not available, call calculate_secure_order
+      let secureTotals = null;
+      let verifiedItems = items;
+
+      const { data: calcResult, error: calcErr } = await this.client.rpc('calculate_secure_order', {
+        p_items: items,
+        p_coupon_code: couponCode
+      });
+
+      // CRITICAL SECURITY RULE: If server calculation fails, ABORT the order!
+      if (calcErr || !calcResult) {
+        console.error("calculate_secure_order error:", calcErr);
+        return {
+          success: false,
+          error: calcErr?.message || "تعذر التحقق من صحة الأسعار مع خادم المتجر. تم إلغاء العملية لحماية بيانات الطلب."
+        };
+      }
+
+      secureTotals = {
+        subtotal: calcResult.subtotal,
+        delivery: calcResult.delivery,
+        discount: calcResult.discount,
+        grandTotal: calcResult.grandTotal
+      };
+      if (calcResult.items) {
+        verifiedItems = calcResult.items;
+      }
+
+      // NEVER insert client-calculated totals if server check fails!
       const orderRecord = {
-        customer: orderPayload.customer,
-        items: orderPayload.items,
+        customer: customer,
+        items: verifiedItems,
         totals: secureTotals,
-        payment_method: orderPayload.paymentMethodKey || orderPayload.paymentMethod,
+        payment_method: paymentMethod,
         order_status: 'new',
         payment_status: 'pending'
       };
 
-      const { data, error } = await this.client
+      const { data: insertData, error: insertError } = await this.client
         .from('orders')
         .insert(orderRecord)
         .select('order_number, id')
         .single();
 
-      if (error) throw error;
+      if (insertError) {
+        console.error("Orders table insertion error:", insertError);
+        return {
+          success: false,
+          error: insertError.message || "فشل قيد الطلب في قاعدة البيانات السحابية."
+        };
+      }
 
-      const generatedNumber = data?.order_number || orderPayload.orderId;
+      const generatedNumber = insertData?.order_number || orderPayload.orderId;
       orderPayload.orderId = generatedNumber;
+      orderPayload.totals = secureTotals;
+
+      // Cache locally only after verified server insertion
+      try {
+        Storage.saveOrder(orderPayload);
+      } catch (e) {
+        console.warn("Storage saveOrder cache note:", e);
+      }
 
       return {
         success: true,
         cloud: true,
         orderId: generatedNumber,
-        dbId: data?.id
+        dbId: insertData?.id,
+        verified: true,
+        totals: secureTotals
       };
+
     } catch (err) {
-      console.error("Supabase createOrder error:", err);
-      return { success: true, cloud: false, orderId: orderPayload.orderId, error: err.message };
+      console.error("Supabase createOrder fatal error:", err);
+      return {
+        success: false,
+        error: err.message || "تعذر التحقق من صحة الأسعار مع خادم المتجر. تم إلغاء العملية لحماية بيانات الطلب."
+      };
     }
   },
 

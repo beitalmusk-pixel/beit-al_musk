@@ -33,6 +33,22 @@
   <meta name="twitter:description" content="عِش تجربة الفخامة الملكية مع أرقى عطور بيت المسك. دهن المسك الصافي، والعود المعتق، ومعرض تفاعلي ثلاثي الأبعاد.">
   <meta name="twitter:image" content="https://beitalmusk-pixel.github.io/beit-al_musk/assets/logo.jpg">
 
+  <!-- Content Security Policy (CSP) & Client-Side Security Headers -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.whatsapp.com https://wa.me https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; media-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+  <!-- Client-side Clickjacking Defense (for static hosts without custom HTTP headers) -->
+  <style id="antiClickjack">body{display:none !important;}</style>
+  <script>
+    if (self === top) {
+      var antiClickjack = document.getElementById("antiClickjack");
+      if (antiClickjack) antiClickjack.parentNode.removeChild(antiClickjack);
+    } else {
+      top.location = self.location;
+    }
+  </script>
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -70,11 +86,11 @@
     }
   </script>
 
-  <!-- External Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- External Libraries (Pinned CDN Versions with SRI & CORS) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" integrity="sha384-d+vyQ0dYcymoP8ndq2hW7FGC50nqGdXUEgoOUGxbbkAJwZqL7h+jKN0GGgn9hFDS" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" integrity="sha384-HAH79XdRvHr6axVGh4xQWVCp14kcd32bNk4Xu0sHDHtFQ42n6BAM8ykvB47dGz6D" crossorigin="anonymous"></script>
 
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/styles.css">
@@ -1114,388 +1130,8 @@
   </div>
 
   <!-- =========================================================================
-       13. لوحة إدارة عطور بيت المسك (Catalog Manager Modal)
+       لوحة إدارة بيت المسك محمية بالكامل ومقتصرة على admin.html فقط (Supabase Auth & RLS)
        ========================================================================= -->
-  <div id="adminModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-4 sm:p-6 flex items-center justify-center overflow-y-auto" dir="rtl">
-    
-    <div class="bg-obsidian-950 border border-gold-500/40 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden relative my-8 text-right">
-      
-      <div class="p-6 border-b border-neutral-800 bg-obsidian-900 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400">
-            <i data-lucide="sliders" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="font-amiri text-xl font-bold text-cream-100">لوحة إدارة عطور وأسعار بيت المسك</h3>
-            <p class="text-xs text-neutral-400">تعديل أسعار الأحجام (30/50/100 مل)، المخزون، النوتات العطرية، وإضافة عطور جديدة فورياً.</p>
-          </div>
-        </div>
-        <button data-close-admin class="text-neutral-400 hover:text-cream-100 p-1.5 rounded-full transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <!-- تبويبات لوحة الإدارة -->
-      <div class="flex items-center gap-2 px-6 pt-4 pb-3 border-b border-neutral-800 bg-obsidian-950/70">
-        <button type="button" id="adminTabProductsBtn" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-gold-500/50 bg-gold-500/20 text-gold-300">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
-          <span>إدارة العطور والأسعار</span>
-        </button>
-        <button type="button" id="adminTabSettingsBtn" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/30">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-          <span>إعدادات المتجر، الواتساب والخصومات</span>
-        </button>
-      </div>
-
-      <div id="adminProductsListPanel" class="p-6 space-y-4">
-        
-        <div class="flex items-center justify-between gap-4">
-          <button id="adminAddNewBtn" class="gold-gradient-btn px-4 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold transition flex items-center gap-2">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>إضافة عطر ملكي جديد</span>
-          </button>
-
-          <button id="adminResetDefaultsBtn" class="px-4 py-2.5 rounded-xl border border-neutral-700 hover:border-gold-500 text-neutral-300 text-xs font-semibold transition flex items-center gap-2">
-            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-            <span>استعادة كتالوج بيت المسك</span>
-          </button>
-        </div>
-
-        <div class="overflow-x-auto rounded-xl border border-neutral-800 bg-obsidian-900/40">
-          <table class="w-full text-right border-collapse">
-            <thead>
-              <tr class="border-b border-neutral-800 bg-obsidian-900 text-xs font-amiri text-neutral-400">
-                <th class="py-3 px-4 text-center">#</th>
-                <th class="py-3 px-4">اسم العطر والماركة</th>
-                <th class="py-3 px-4 text-center">الأسعار (30 مل / 50 مل / 100 مل)</th>
-                <th class="py-3 px-4 text-center">المخزون</th>
-                <th class="py-3 px-4 text-left">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="adminProductsTableBody">
-              <!-- Rendered via admin.js -->
-            </tbody>
-          </table>
-        </div>
-
-      </div>
-
-      <div id="adminEditFormPanel" class="hidden p-6 space-y-6">
-        <div class="flex items-center justify-between pb-4 border-b border-neutral-800">
-          <h4 id="adminFormTitle" class="font-amiri text-lg font-bold text-gold-400">تعديل بيانات العطر</h4>
-          <button id="adminCancelEditBtn" class="text-xs text-neutral-400 hover:text-cream-100 font-bold">إلغاء التعديل</button>
-        </div>
-
-        <form id="adminProductForm" class="space-y-4">
-          <input type="hidden" id="editProdId">
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">اسم العطر *</label>
-              <input type="text" id="editProdName" required class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">الماركة والدار *</label>
-              <input type="text" id="editProdBrand" required class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">التركيز والنوع</label>
-              <input type="text" id="editProdSubtitle" placeholder="خلاصة عطرية - Extrait de Parfum" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">العائلة العطرية</label>
-              <input type="text" id="editProdCategory" placeholder="خشبي ومسكي" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">الكمية المتوفرة بالمخزون</label>
-              <input type="number" id="editProdStock" min="0" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right font-mono">
-            </div>
-          </div>
-
-          <!-- صورة العطر الرسمية مع إمكانية الرفع والتغيير -->
-          <div class="p-4 rounded-xl bg-obsidian-900/60 border border-gold-500/30 flex flex-col sm:flex-row items-center gap-4">
-            <div class="w-20 h-28 rounded-xl bg-obsidian-950 border border-gold-500/25 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-md">
-              <img id="embeddedProdImagePreview" src="assets/products/sokoon.jpg" alt="صورة العطر" class="w-full h-full object-contain p-1">
-            </div>
-            <div class="flex-1 space-y-2 text-right w-full">
-              <label class="block text-xs font-bold text-gold-400">صورة العطر الرسمية (رفع صورة من جهازك أو وضع رابط) *</label>
-              <div class="flex flex-wrap items-center gap-2">
-                <input type="file" id="embeddedProdImageFileInput" accept="image/*" class="hidden">
-                <button type="button" id="btnTriggerEmbeddedImageUpload" class="px-3 py-1.5 rounded-lg bg-gold-500/20 hover:bg-gold-500/30 border border-gold-500/40 text-gold-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
-                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                  <span>رفع / تغيير صورة العطر</span>
-                </button>
-                <button type="button" id="btnRemoveEmbeddedImage" class="px-3 py-1.5 rounded-lg border border-neutral-700 hover:border-red-500/40 text-neutral-400 hover:text-red-400 text-xs transition cursor-pointer">
-                  استعادة الافتراضي
-                </button>
-              </div>
-              <input type="text" id="embeddedProdImageUrlInput" placeholder="أو مسار الصورة (assets/products/... أو https://...)" class="w-full px-3 py-1.5 rounded-lg bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono text-left" dir="ltr">
-            </div>
-          </div>
-
-          <!-- تصنيف قسم ومنصة العطر: رجالي أم حريمي -->
-          <div class="p-4 rounded-xl bg-obsidian-900/60 border border-gold-500/30 space-y-2">
-            <label class="block text-xs text-gold-400 font-bold mb-1">تصنيف قسم ومنصة العطر (رجالي أم حريمي) *</label>
-            <div class="grid grid-cols-2 gap-3">
-              <label id="embeddedPodiumMen" class="border-2 border-gold-500 bg-gold-500/10 p-3 rounded-xl cursor-pointer flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-lg">👑</span>
-                  <div>
-                    <span class="text-xs font-bold text-cream-100 block">عطر رجالي</span>
-                    <span class="text-[10px] text-neutral-400 block">منصة الرجال (أسود وذهب)</span>
-                  </div>
-                </div>
-                <input type="radio" name="adminProdPodium" value="men" checked class="w-4 h-4 text-gold-500">
-              </label>
-
-              <label id="embeddedPodiumWomen" class="border-2 border-neutral-800 bg-obsidian-950 p-3 rounded-xl cursor-pointer flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-lg">🌸</span>
-                  <div>
-                    <span class="text-xs font-bold text-cream-100 block">عطر حريمي</span>
-                    <span class="text-[10px] text-neutral-400 block">منصة النساء (أبيض وروز)</span>
-                  </div>
-                </div>
-                <input type="radio" name="adminProdPodium" value="women" class="w-4 h-4 text-pink-500">
-              </label>
-            </div>
-          </div>
-
-          <div class="p-4 rounded-xl bg-obsidian-900/60 border border-neutral-800 space-y-3">
-            <span class="text-xs font-bold text-gold-400 block font-amiri">الأسعار حسب الحجم بالدولار ($ USD)</span>
-            <div class="grid grid-cols-3 gap-4" dir="ltr">
-              <div>
-                <label class="block text-[10px] text-neutral-400 mb-1 text-center">30ml Price ($)</label>
-                <input type="number" id="editProdPrice30" required min="1" class="w-full px-3 py-2 rounded-lg bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono">
-              </div>
-              <div>
-                <label class="block text-[10px] text-neutral-400 mb-1 text-center">50ml Price ($)</label>
-                <input type="number" id="editProdPrice50" required min="1" class="w-full px-3 py-2 rounded-lg bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono">
-              </div>
-              <div>
-                <label class="block text-[10px] text-neutral-400 mb-1 text-center">100ml Price ($)</label>
-                <input type="number" id="editProdPrice100" required min="1" class="w-full px-3 py-2 rounded-lg bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono">
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">قمة العطر (مفصولة بفواصل)</label>
-              <input type="text" id="editProdTopNotes" placeholder="مسك أبيض، زعفران، برغموت" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">قلب العطر (مفصولة بفواصل)</label>
-              <input type="text" id="editProdHeartNotes" placeholder="ورد طائفي، ياسمين، بخور" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">قاعدة العطر (مفصولة بفواصل)</label>
-              <input type="text" id="editProdBaseNotes" placeholder="مسك الغزال، عود كمبودي، عنبر" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">الوصف العطري للمتجر</label>
-              <textarea id="editProdDescription" rows="2" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right"></textarea>
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1 font-medium">حكاية استلهام العطر في بيت المسك</label>
-              <textarea id="editProdStory" rows="2" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right"></textarea>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-3 gap-4">
-            <div>
-              <label class="block text-[10px] text-neutral-400 mb-1 text-center">لون السائل العطري</label>
-              <input type="color" id="editProdLiquidColor" class="w-full h-8 rounded bg-obsidian-900 border border-neutral-700 cursor-pointer">
-            </div>
-            <div>
-              <label class="block text-[10px] text-neutral-400 mb-1 text-center">لون الغطاء المعدني</label>
-              <input type="color" id="editProdCapColor" class="w-full h-8 rounded bg-obsidian-900 border border-neutral-700 cursor-pointer">
-            </div>
-            <div>
-              <label class="block text-[10px] text-neutral-400 mb-1 text-center">لون كشاف الإضاءة</label>
-              <input type="color" id="editProdAccentColor" class="w-full h-8 rounded bg-obsidian-900 border border-neutral-700 cursor-pointer">
-            </div>
-          </div>
-
-          <div class="pt-4 border-t border-neutral-800 flex justify-end gap-3">
-            <button type="button" onclick="Admin.closeEditForm()" class="px-5 py-2.5 rounded-xl border border-neutral-700 text-xs text-neutral-300 font-bold hover:text-cream-100">
-              إلغاء
-            </button>
-            <button type="submit" class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold">
-              حفظ العطر في بيت المسك
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- لوحة إعدادات المتجر، رقم الواتساب والخصومات (Admin Store Settings & Discounts) -->
-      <div id="adminSettingsPanel" class="hidden p-6 space-y-6">
-        
-        <!-- قسم رقم واتساب الإدارة -->
-        <div class="p-5 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <i data-lucide="phone-call" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h4 class="font-amiri text-lg font-bold text-cream-100">رقم واتساب الإدارة لاستقبال الطلبات</h4>
-              <p class="text-xs text-neutral-400">الرقم الرسمي الذي يتلقى رسائل تأكيد الشراء، تفاصيل الفاتورة، واستفسارات كونسيرج بيت المسك.</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-1">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رقم الواتساب (يشمل كود الدولة الدولي مثل +2010... أو 966...)</label>
-              <input type="text" id="adminSettingWhatsApp" dir="ltr" placeholder="+201099887766" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-sm text-cream-100 font-mono focus:border-emerald-500 transition">
-            </div>
-            <div class="flex items-end">
-              <button type="button" id="adminTestWhatsAppBtn" class="w-full py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-2">
-                <i data-lucide="send" class="w-4 h-4"></i>
-                <span>اختبار فتح محادثة WhatsApp</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- قسم بيانات الدفع، فودافون كاش وإنستا باي وبيانات التحويل -->
-        <div class="p-5 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400 text-lg">
-              💳
-            </div>
-            <div>
-              <h4 class="font-amiri text-lg font-bold text-cream-100">بيانات تحويل الأموال وأرقام الكاش والإنستا</h4>
-              <p class="text-xs text-neutral-400">الأرقام والبيانات التي تظهر للعملاء لتحويل قيمة الطلبات عليها.</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رقم محفظة فودافون كاش *</label>
-              <input type="text" id="adminSettingVodafoneCash" dir="ltr" placeholder="01012345678" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-red-500 transition">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1.5 font-medium">اسم صاحب محفظة الكاش</label>
-              <input type="text" id="adminSettingVodafoneCashName" placeholder="بيت المسك للعطور" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-red-500 transition text-right">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1.5 font-medium">حساب / رقم إنستا باي (InstaPay) *</label>
-              <input type="text" id="adminSettingInstapay" dir="ltr" placeholder="username@instapay أو 010..." class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-purple-500 transition">
-            </div>
-            <div>
-              <label class="block text-xs text-neutral-300 mb-1.5 font-medium">اسم المستلم في إنستاباي</label>
-              <input type="text" id="adminSettingInstapayName" placeholder="بيت المسك للعطور الملكية" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-purple-500 transition text-right">
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs text-neutral-300 mb-1.5 font-medium">تعليمات وبيانات تحويل المبلغ للعميل</label>
-            <textarea id="adminSettingPaymentInstructions" rows="2" placeholder="اكتب التعليمات التي يراها العميل عند التحويل..." class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 transition text-right leading-relaxed"></textarea>
-          </div>
-        </div>
-
-        <!-- قسم الخصومات والعروض الملكية -->
-        <div class="p-5 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-5">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400">
-              <i data-lucide="percent" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h4 class="font-amiri text-lg font-bold text-cream-100">إدارة الخصومات والعروض الترويجية</h4>
-              <p class="text-xs text-neutral-400">تفعيل خصم مباشر تلقائي على كامل المتجر، أو إنشاء وإدارة كوبونات الخصم وقسائم الشراء.</p>
-            </div>
-          </div>
-
-          <!-- 1. الخصم المباشر الشامل للمتجر -->
-          <div class="p-4 rounded-xl bg-obsidian-950/80 border border-gold-500/25 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <input type="checkbox" id="adminGlobalDiscountEnabled" class="w-4 h-4 rounded text-gold-500 bg-obsidian-900 border-neutral-700 focus:ring-gold-500 cursor-pointer">
-                <label for="adminGlobalDiscountEnabled" class="text-xs font-bold text-cream-100 cursor-pointer">تفعيل خصم عام مباشر على كامل المتجر</label>
-              </div>
-              <span id="adminDiscountStatusBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-neutral-800 text-neutral-400 font-bold">معطل</span>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div>
-                <label class="block text-xs text-neutral-400 mb-1">نسبة الخصم المئوية %</label>
-                <div class="flex items-center gap-2">
-                  <input type="number" id="adminGlobalDiscountPercent" min="0" max="90" value="0" placeholder="0" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 font-mono text-center">
-                  <span class="text-gold-400 font-bold">%</span>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs text-neutral-400 mb-1">مسمى العرض / المناسبة</label>
-                <input type="text" id="adminGlobalDiscountLabel" placeholder="خصم بيت المسك الملكي" class="w-full px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
-              </div>
-            </div>
-            <p class="text-[11px] text-neutral-400">عند تفعيل الخصم، يظهر شريط ذهبي رسمي بأعلى الموقع ويتم تطبيق الخصم فورياً في الحقيبة وعند الدفع.</p>
-          </div>
-
-          <!-- 2. قسائم وأكواد الخصم الإضافية -->
-          <div class="space-y-3 pt-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-gold-400 font-amiri">كوبونات وأكواد الخصم المفعلة</span>
-              <span class="text-[11px] text-neutral-400">يمكن للعميل إدخال الكود في سلة المشتريات</span>
-            </div>
-
-            <div class="overflow-x-auto rounded-xl border border-neutral-800 bg-obsidian-950/60">
-              <table class="w-full text-right text-xs">
-                <thead>
-                  <tr class="border-b border-neutral-800 bg-obsidian-900/60 text-neutral-400 font-amiri">
-                    <th class="py-2.5 px-3">كود الخصم</th>
-                    <th class="py-2.5 px-3 text-center">القيمة / النوع</th>
-                    <th class="py-2.5 px-3">الوصف</th>
-                    <th class="py-2.5 px-3 text-left">إجراء</th>
-                  </tr>
-                </thead>
-                <tbody id="adminPromosTableBody">
-                  <!-- Rendered via JS -->
-                </tbody>
-              </table>
-            </div>
-
-            <!-- نموذج إضافة كود خصم جديد -->
-            <div class="p-3.5 rounded-xl bg-obsidian-950/90 border border-neutral-800 flex flex-wrap sm:flex-nowrap items-center gap-2.5">
-              <input type="text" id="adminNewPromoCode" placeholder="رمز الكود (مثال: OFFER25)" dir="ltr" class="px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 uppercase font-mono w-full sm:w-36">
-              <input type="number" id="adminNewPromoValue" placeholder="القيمة" min="1" max="100" class="px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 font-mono w-full sm:w-24 text-center">
-              <select id="adminNewPromoType" class="px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 w-full sm:w-28">
-                <option value="percent">نسبة مئوية %</option>
-                <option value="fixed">مبلغ ثابت $</option>
-              </select>
-              <input type="text" id="adminNewPromoLabel" placeholder="وصف الكود" class="px-3 py-2 rounded-lg bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right flex-1">
-              <button type="button" id="adminAddPromoBtn" class="px-4 py-2 rounded-lg bg-gold-500/20 hover:bg-gold-500/30 border border-gold-500/40 text-gold-300 text-xs font-bold whitespace-nowrap transition">
-                + إضافة الكود
-              </button>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- أزرار حفظ الإعدادات -->
-        <div class="pt-4 border-t border-neutral-800 flex justify-end gap-3">
-          <button type="button" data-close-admin class="px-5 py-2.5 rounded-xl border border-neutral-700 text-xs text-neutral-300 font-bold hover:text-cream-100">
-            إغلاق
-          </button>
-          <button type="button" id="adminSaveSettingsBtn" class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold shadow-lg">
-            حفظ إعدادات الواتساب والخصومات
-          </button>
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
 
   <!-- =========================================================================
        14. شريط الشراء السريع العائم للموبايل (Mobile Sticky Quick-Buy Bar)
@@ -1547,13 +1183,13 @@
 
   <div id="toastContainer" class="fixed top-20 left-4 sm:left-8 z-50 flex flex-col gap-2 pointer-events-none" dir="rtl"></div>
 
-  <!-- Firebase SDK (v10 Compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <!-- Firebase SDK (v10 Compat - Pinned Versions with SRI & CORS) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js" integrity="sha384-4gq9w/AGf72FXdNQ3Kn3EqWP7633NbCMjpYHt8YCZyXf23o2opcuAr4cif41tLrC" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js" integrity="sha384-Qgqc/HETq5lqJnRDqWnV1AZGw3pgMYNUVaqLLN1W/55XuWK94epwbCQrOvdoh1Zo" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js" integrity="sha384-xtdq4MQqPj1dB5DQsuw9O7dh4kHhMP/Wp5u8O1jiaWiou13ZfJIgiccjtVK2pBhL" crossorigin="anonymous"></script>
 
-  <!-- Supabase v2 JS Client (PostgreSQL & RLS Auth) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase v2 JS Client (PostgreSQL & RLS Auth - Pinned Version with SRI & CORS) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.10/dist/umd/supabase.min.js" integrity="sha384-z4iWwfGok6nwo14qorcgp9QHDhY0q4kM3S2mWKmdxg/N9+jiyxlx6oqp6vHl3t8V" crossorigin="anonymous"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/supabase-client.js"></script>
 

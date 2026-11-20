@@ -160,12 +160,17 @@ const CartUI = {
       cart.forEach(item => {
         const itemTotal = item.unitPrice * item.quantity;
         const prod = Storage.getProductById(item.productId);
+        const safeImage = prod && prod.image ? sanitizeImageUrl(prod.image) : "assets/logo.jpg";
+        const safeName = escapeHtml(item.name);
+        const safeBrand = escapeHtml(item.brand);
+        const safeSize = escapeHtml(item.size);
+
         const imgMarkup = (prod && prod.image) 
-          ? `<img src="${prod.image}" alt="${item.name}" class="w-full h-full object-contain rounded-md">`
+          ? `<img src="${safeImage}" alt="${safeName}" class="w-full h-full object-contain rounded-md">`
           : (prod ? generateBottleSvg(prod, 70, 90) : `<img src="assets/logo.jpg" class="w-full h-full object-contain">`);
 
         html += `
-          <div class="cart-item group relative flex gap-4 p-4 rounded-xl bg-obsidian-900/60 border border-gold-500/15 backdrop-blur-md transition hover:border-gold-500/30 mb-3" data-cart-id="${item.cartItemId}">
+          <div class="cart-item group relative flex gap-4 p-4 rounded-xl bg-obsidian-900/60 border border-gold-500/15 backdrop-blur-md transition hover:border-gold-500/30 mb-3" data-cart-id="${escapeHtml(item.cartItemId)}">
             <!-- Bottle Visual -->
             <div class="w-16 h-20 flex-shrink-0 rounded-lg bg-obsidian-950 flex items-center justify-center p-1 border border-gold-500/20 overflow-hidden relative">
               ${imgMarkup}
@@ -176,17 +181,17 @@ const CartUI = {
               <div>
                 <div class="flex justify-between items-start gap-2">
                   <h4 class="font-amiri text-base text-cream-100 font-bold tracking-wide leading-tight group-hover:text-gold-300 transition">
-                    ${item.name}
+                    ${safeName}
                   </h4>
-                  <button class="remove-cart-item text-neutral-500 hover:text-red-400 p-1 transition" data-remove-id="${item.cartItemId}" title="حذف">
+                  <button class="remove-cart-item text-neutral-500 hover:text-red-400 p-1 transition" data-remove-id="${escapeHtml(item.cartItemId)}" title="حذف">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                   </button>
                 </div>
                 <div class="flex items-center gap-2 mt-0.5">
-                  <span class="text-[11px] text-neutral-400 font-sans">${item.brand}</span>
+                  <span class="text-[11px] text-neutral-400 font-sans">${safeBrand}</span>
                   <span class="text-neutral-600">•</span>
                   <span class="text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded-full bg-gold-500/10 text-gold-400 border border-gold-500/20 font-mono">
-                    ${item.size}
+                    ${safeSize}
                   </span>
                 </div>
               </div>
