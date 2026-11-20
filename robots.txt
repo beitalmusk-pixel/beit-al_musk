@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /.archive_shots/
+
+Sitemap: https://beitalmusk.com/sitemap.xml

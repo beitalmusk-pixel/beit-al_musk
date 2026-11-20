@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>بوابة إدارة بيت المسك الملكية | BEIT AL-MUSK ADMIN</title>
+  <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+
+  <!-- Google Fonts & Tailwind CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@300;400;500;600;700;800;900&family=Cinzel:wght@400;600;700;900&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Custom Colors -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: {
+              950: '#060508',
+              900: '#0d0c12',
+              850: '#121019',
+              800: '#181622',
+              700: '#232030'
+            },
+            gold: {
+              300: '#f7e6a6',
+              400: '#e5c07b',
+              500: '#d4af37',
+              600: '#b58d22',
+              700: '#8a6810'
+            },
+            cream: {
+              100: '#fdfbf7',
+              200: '#f5f0e6',
+              300: '#e8dec8'
+            }
+          },
+          fontFamily: {
+            amiri: ['Amiri', 'serif'],
+            cairo: ['Cairo', 'sans-serif'],
+            royal: ['Cinzel', 'Amiri', 'serif'],
+            sans: ['Tajawal', 'Cairo', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Main Luxury CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-obsidian-950 text-cream-200 font-sans min-h-screen">
+
+  <!-- =========================================================================
+       1. بوابة تسجيل الدخول السرية للإدارة (Admin Royal Login Gate)
+       ========================================================================= -->
+  <div id="adminLoginGate" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Glow Backdrops -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md bg-obsidian-900/95 border border-gold-500/30 rounded-3xl p-8 sm:p-10 shadow-2xl backdrop-blur-2xl relative z-10 text-right">
+      
+      <div class="text-center mb-8">
+        <img src="assets/logo.jpg" alt="شعار بيت المسك - BEIT AL-MUSK" class="w-24 h-24 object-contain mx-auto rounded-2xl border border-gold-500/30 shadow-2xl mb-4">
+        <h2 class="font-amiri text-2xl sm:text-3xl font-bold text-cream-100 gold-gradient-text">
+          بوابة إدارة بيت المسك
+        </h2>
+        <p class="text-[10px] text-gold-400 font-mono tracking-widest uppercase mt-1">
+          BEIT AL-MUSK • LEAVE YOUR MARK
+        </p>
+        <p class="text-xs text-neutral-400 mt-3 leading-relaxed font-light">
+          هذه الصفحة مخصصة للمدير المسؤول فقط لإدارة العطور والأسعار. يرجى إدخال رمز المرور السري للمتابعة.
+        </p>
+      </div>
+
+      <form id="adminLoginForm" class="space-y-5">
+        <div>
+          <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رمز المرور السري للإدارة</label>
+          <div class="relative">
+            <input 
+              type="password" 
+              id="adminPasswordInput" 
+              required 
+              placeholder="••••••••" 
+              class="w-full pl-11 pr-4 py-3 rounded-xl bg-obsidian-950 border border-neutral-700 text-sm text-cream-100 placeholder-neutral-600 focus:outline-none focus:border-gold-500 transition text-center font-mono tracking-widest"
+              autocomplete="current-password"
+            >
+            <button type="button" id="togglePasswordVisibilityBtn" class="absolute left-3 top-3 text-neutral-500 hover:text-gold-400 transition" title="إظهار / إخفاء الرمز">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="loginErrorMessage" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+          <span>رمز المرور غير صحيح. يرجى التحقق والمحاولة مجدداً.</span>
+        </div>
+
+        <button type="submit" class="w-full gold-gradient-btn py-3 px-4 rounded-xl text-obsidian-950 text-xs font-bold tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.01] active:scale-[0.99]">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+          <span>تسجيل الدخول للوحة التحكم</span>
+        </button>
+
+        <div class="text-center pt-2">
+          <a href="index.html" class="text-xs text-neutral-500 hover:text-gold-400 transition inline-flex items-center gap-1 font-medium">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            <span>العودة إلى متجر بيت المسك</span>
+          </a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       2. لوحة التحكم الشاملة (Admin Dashboard - Unlocked after authentication)
+       ========================================================================= -->
+  <div id="adminDashboard" class="hidden min-h-screen">
+    
+    <!-- شريط التنقل العلوي للوحة الإدارة -->
+    <header class="sticky top-0 z-40 bg-obsidian-900/90 backdrop-blur-xl border-b border-gold-500/20 px-4 sm:px-8 py-3.5">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        
+        <!-- شعار بيت المسك واللوحة -->
+        <div class="flex items-center gap-3">
+          <img src="assets/logo.jpg" alt="بيت المسك - BEIT AL-MUSK" class="h-12 w-auto object-contain rounded-xl border border-gold-500/30 shadow-md">
+          <div>
+            <h1 class="font-amiri text-xl sm:text-2xl font-bold text-cream-100 gold-gradient-text">
+              لوحة إدارة بيت المسك
+            </h1>
+            <p class="text-[10px] text-gold-400/80 font-mono tracking-wider uppercase">
+              BEIT AL-MUSK • LEAVE YOUR MARK
+            </p>
+          </div>
+        </div>
+
+        <!-- أزرار الإجراءات السريعة وتغيير كلمة المرور والخروج -->
+        <div class="flex flex-wrap items-center justify-center gap-2.5">
+          <button id="btnAddNewPerfume" class="gold-gradient-btn px-4 py-2 rounded-full text-obsidian-950 text-xs font-bold tracking-wide transition flex items-center gap-1.5 shadow-lg shadow-gold-500/20 hover:scale-105 active:scale-95">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>إضافة عطر جديد</span>
+          </button>
+
+          <button id="btnOpenChangePassModal" class="px-3.5 py-2 rounded-full border border-neutral-700 hover:border-gold-500/50 bg-obsidian-950/80 text-xs text-neutral-300 hover:text-gold-400 transition flex items-center gap-1.5" title="تغيير كلمة المرور">
+            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+            <span>تغيير الرمز السري</span>
+          </button>
+
+          <button id="btnAdminLogout" class="px-3.5 py-2 rounded-full border border-red-500/30 hover:border-red-500/60 bg-red-500/10 text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1.5" title="تسجيل الخروج وقفل اللوحة">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>تسجيل الخروج</span>
+          </button>
+
+          <a href="index.html" class="px-3.5 py-2 rounded-full border border-neutral-700 hover:border-gold-500/50 bg-obsidian-950/80 text-xs text-neutral-300 hover:text-cream-100 transition flex items-center gap-1.5">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            <span>المتجر</span>
+          </a>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- محتوى لوحة الإدارة -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
+      
+      <!-- شريط تبويبات التنقل الرئيسية للوحة التحكم -->
+      <div class="flex flex-wrap items-center gap-3 border-b border-neutral-800 pb-4">
+        <button id="adminTabProductsBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-gold-500/50 bg-gold-500/20 text-gold-300 shadow-sm shadow-gold-500/10 cursor-pointer">
+          <i data-lucide="package" class="w-4 h-4"></i>
+          <span>كتالوج العطور والمخزون</span>
+        </button>
+
+        <button id="adminTabPaymentBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer">
+          <i data-lucide="wallet" class="w-4 h-4"></i>
+          <span>بيانات الدفع وأرقام التحويل (كاش / إنستا / تواصل)</span>
+        </button>
+      </div>
+
+      <!-- قسم كتالوج العطور والمخزون -->
+      <section id="adminProductsSection" class="space-y-8">
+        
+        <!-- بطاقات الإحصائيات العامة -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+          
+          <div class="glass-card p-5 rounded-2xl border border-gold-500/20 text-right">
+            <span class="text-[11px] text-neutral-400 font-medium">إجمالي العطور بالمتجر</span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span id="statTotalPerfumes" class="font-mono text-2xl sm:text-3xl font-bold text-gold-400">6</span>
+              <i data-lucide="sparkles" class="w-5 h-5 text-gold-500/40"></i>
+            </div>
+          </div>
+
+          <div class="glass-card p-5 rounded-2xl border border-gold-500/20 text-right">
+            <span class="text-[11px] text-neutral-400 font-medium">إجمالي المخزون المتاح</span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span id="statTotalStock" class="font-mono text-2xl sm:text-3xl font-bold text-emerald-400">76</span>
+              <i data-lucide="package" class="w-5 h-5 text-emerald-500/40"></i>
+            </div>
+          </div>
+
+          <div class="glass-card p-5 rounded-2xl border border-gold-500/20 text-right">
+            <span class="text-[11px] text-neutral-400 font-medium">متوسط سعر قنينة 50ml</span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span id="statAvgPrice" class="font-mono text-2xl sm:text-3xl font-bold text-cream-100">262 ج.م</span>
+              <i data-lucide="coins" class="w-5 h-5 text-gold-500/40"></i>
+            </div>
+          </div>
+
+          <div class="glass-card p-5 rounded-2xl border border-gold-500/20 text-right">
+            <span class="text-[11px] text-neutral-400 font-medium">العائلات العطرية النشطة</span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span id="statCategories" class="font-mono text-2xl sm:text-3xl font-bold text-gold-300">5</span>
+              <i data-lucide="layers" class="w-5 h-5 text-gold-500/40"></i>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- شريط البحث والتصفية -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-obsidian-900/60 p-4 rounded-2xl border border-neutral-800">
+          
+          <div class="flex flex-1 items-center gap-3 w-full sm:w-auto">
+            <div class="relative flex-1 max-w-md">
+              <input 
+                type="text" 
+                id="adminSearchInput" 
+                placeholder="ابحث عن أي عطر بالاسم أو النوتة أو العائلة..." 
+                class="w-full pl-4 pr-10 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 placeholder-neutral-500 focus:outline-none focus:border-gold-500 text-right transition"
+              >
+              <i data-lucide="search" class="w-4 h-4 text-neutral-500 absolute top-3 right-3 pointer-events-none"></i>
+            </div>
+
+            <select id="adminCategorySelect" class="px-3 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:outline-none focus:border-gold-500 text-right transition">
+              <option value="all">كافة العائلات والأجنحة</option>
+              <option value="men">👑 عطور الجناح الرجالي (Men)</option>
+              <option value="women">🌸 عطور الجناح النسائي (Women)</option>
+              <option value="خشبي">العطور الخشبية والعود</option>
+              <option value="زهري">العطور الزهرية والورد</option>
+              <option value="عنبر">عطور العنبر الشرقي</option>
+              <option value="جلد">عطور الجلود الملكية</option>
+            </select>
+          </div>
+
+          <button id="btnResetDefaults" class="px-4 py-2.5 rounded-xl border border-neutral-800 hover:border-gold-500/40 text-neutral-400 hover:text-gold-400 text-xs font-medium transition flex items-center gap-1.5" title="استعادة عطور بيت المسك الأصلية الافتراضية">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>استعادة العطور الافتراضية</span>
+          </button>
+
+        </div>
+
+        <!-- شبكة بطاقات العطور الملكية -->
+        <div id="adminProductsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Populated via admin-page.js -->
+        </div>
+
+      </section>
+
+      <!-- =========================================================================
+           قسم بيانات الدفع وأرقام التحويل للإدارة (كاش / إنستا باي / تواصل)
+           ========================================================================= -->
+      <section id="adminPaymentSection" class="hidden space-y-6">
+        
+        <!-- Header Banner -->
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-obsidian-900 via-obsidian-850 to-obsidian-900 border border-gold-500/30 text-right flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400 text-2xl flex-shrink-0">
+              💳
+            </div>
+            <div>
+              <h3 class="font-amiri text-xl sm:text-2xl font-bold text-cream-100">
+                بيانات الدفع والتواصل للإدارة
+              </h3>
+              <p class="text-xs text-neutral-400 mt-1">
+                حدد هنا أرقام فودافون كاش، وإنستا باي، وهاتف التواصل، وبيانات الحساب البنكي التي تظهر للعميل لتحويل قيمة الطلبات.
+              </p>
+            </div>
+          </div>
+          <button id="btnSavePaymentSettingsTop" type="button" class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold tracking-wide transition flex items-center gap-1.5 shadow-lg shadow-gold-500/20 cursor-pointer">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>حفظ بيانات التحويل</span>
+          </button>
+        </div>
+
+        <form id="adminPaymentSettingsForm" class="space-y-6">
+          
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- 1. رقم التواصل وواتساب الإدارة -->
+            <div class="p-6 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-4">
+              <div class="flex items-center gap-3 pb-3 border-b border-neutral-800/80">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg">
+                  📞
+                </div>
+                <div>
+                  <h4 class="font-amiri text-lg font-bold text-cream-100">رقم التواصل وواتساب الإدارة</h4>
+                  <p class="text-[11px] text-neutral-400">الرقم الرسمي الذي يستقبل رسائل حجز الطلبات واستفسارات الكونسيرج.</p>
+                </div>
+              </div>
+
+              <div class="space-y-3.5">
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رقم الواتساب الرسمي (مع كود الدولة مثل +2010... أو 2010...) *</label>
+                  <input type="text" id="settingAdminWhatsApp" dir="ltr" placeholder="+201012345678" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-emerald-500 transition text-left">
+                </div>
+
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رقم الهاتف البديل للمكالمات (اختياري)</label>
+                  <input type="text" id="settingAdminPhone" dir="ltr" placeholder="01012345678" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-emerald-500 transition text-left">
+                </div>
+
+                <div class="pt-1">
+                  <button type="button" id="btnTestAdminWhatsApp" class="w-full py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    <span>اختبار فتح محادثة WhatsApp الإدارة</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. محفظة فودافون كاش -->
+            <div class="p-6 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-4">
+              <div class="flex items-center gap-3 pb-3 border-b border-neutral-800/80">
+                <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-lg">
+                  📱
+                </div>
+                <div>
+                  <h4 class="font-amiri text-lg font-bold text-cream-100">محفظة فودافون كاش (Vodafone Cash)</h4>
+                  <p class="text-[11px] text-neutral-400">الرقم الذي يظهر للعميل عند اختيار الدفع عبر فودافون كاش لتحويل المبلغ.</p>
+                </div>
+              </div>
+
+              <div class="space-y-3.5">
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رقم محفظة فودافون كاش للتحويل *</label>
+                  <input type="text" id="settingVodafoneCashNumber" dir="ltr" placeholder="01012345678" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-red-500 transition text-left">
+                </div>
+
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">اسم صاحب المحفظة المسجل (لتأكيد التحويل)</label>
+                  <input type="text" id="settingVodafoneCashName" placeholder="مثال: بيت المسك / أحمد محمد" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-red-500 transition text-right">
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. حساب إنستا باي (InstaPay) -->
+            <div class="p-6 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-4">
+              <div class="flex items-center gap-3 pb-3 border-b border-neutral-800/80">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg">
+                  ⚡
+                </div>
+                <div>
+                  <h4 class="font-amiri text-lg font-bold text-cream-100">حساب إنستا باي (InstaPay)</h4>
+                  <p class="text-[11px] text-neutral-400">معرف الدفع اللحظي (IPA) أو رقم الهاتف المسجل على تطبيق InstaPay.</p>
+                </div>
+              </div>
+
+              <div class="space-y-3.5">
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">معرف الدفع اللحظي (IPA) أو رقم الهاتف في InstaPay *</label>
+                  <input type="text" id="settingInstapayAccount" dir="ltr" placeholder="username@instapay أو 01012345678" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-purple-500 transition text-left">
+                </div>
+
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">اسم المستلم في إنستاباي</label>
+                  <input type="text" id="settingInstapayName" placeholder="مثال: بيت المسك للعطور الملكية" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-purple-500 transition text-right">
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. بيانات التحويل البنكي والتعليمات العامة -->
+            <div class="p-6 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-4">
+              <div class="flex items-center gap-3 pb-3 border-b border-neutral-800/80">
+                <div class="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-gold-400 text-lg">
+                  🏦
+                </div>
+                <div>
+                  <h4 class="font-amiri text-lg font-bold text-cream-100">بيانات الحساب البنكي (اختياري)</h4>
+                  <p class="text-[11px] text-neutral-400">في حال رغبة العميل بالتحويل البنكي المباشر لحساب الدار.</p>
+                </div>
+              </div>
+
+              <div class="space-y-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs text-neutral-300 mb-1.5 font-medium">اسم البنك</label>
+                    <input type="text" id="settingBankName" placeholder="مثال: البنك الأهلي المصري / CIB" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 transition text-right">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رقم الحساب أو الآيبان (IBAN)</label>
+                    <input type="text" id="settingBankAccount" dir="ltr" placeholder="EG00000000000000000000" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono focus:border-gold-500 transition text-left">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs text-neutral-300 mb-1.5 font-medium">اسم صاحب الحساب المستفيد</label>
+                  <input type="text" id="settingBeneficiaryName" placeholder="اسم المستفيد الكامل كما في البنك" class="w-full px-4 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 transition text-right">
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 5. مكان ملاحظات وتعليمات تحويل المبلغ من العميل -->
+          <div class="p-6 rounded-2xl bg-obsidian-900/70 border border-neutral-800 space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="text-gold-400 text-base">📝</span>
+              <h4 class="font-amiri text-lg font-bold text-cream-100">تعليمات وملاحظات تحويل المبلغ للعميل</h4>
+            </div>
+            <p class="text-xs text-neutral-400">تظهر هذه الرسالة التوضيحية للعميل عند اختيار الدفع الإلكتروني (فودافون كاش أو إنستا باي) لإرشاده بكيفية تأكيد الدفع وإرسال إشعار التحويل.</p>
+            <textarea id="settingPaymentInstructions" rows="3" placeholder="اكتب تعليمات التحويل التي تود أن يراها العميل بعد اختيار وسيلة الدفع..." class="w-full px-4 py-3 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 transition text-right leading-relaxed"></textarea>
+          </div>
+
+          <!-- Save Button Bar -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-neutral-800">
+            <span class="text-xs text-neutral-400 font-mono">يتم حفظ وتطبيق البيانات فورياً على المتجر الحي ونافذة إتمام الطلب</span>
+            <button type="submit" id="btnSavePaymentSettings" class="gold-gradient-btn px-8 py-3.5 rounded-xl text-obsidian-950 text-xs font-bold tracking-wide transition flex items-center gap-2 shadow-xl shadow-gold-500/20 hover:scale-105 active:scale-95 cursor-pointer">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span>حفظ ونشر بيانات الدفع والتواصل</span>
+            </button>
+          </div>
+
+        </form>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- =========================================================================
+       3. نافذة تعديل وإضافة مواصفات العطر (Edit / Add Modal Form)
+       ========================================================================= -->
+  <div id="adminFormModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-4 sm:p-6 flex items-center justify-center overflow-y-auto" dir="rtl">
+    
+    <div class="modal-dialog bg-obsidian-950 border border-gold-500/30 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden relative my-6 text-right max-h-[92vh] flex flex-col">
+      
+      <!-- Form Header -->
+      <div class="p-6 border-b border-neutral-800 flex items-center justify-between bg-obsidian-900/80 flex-shrink-0">
+        <div>
+          <span class="text-xs text-gold-400 font-bold font-amiri">محرر مواصفات كتالوج بيت المسك</span>
+          <h3 id="formModalTitle" class="font-amiri text-2xl font-bold text-cream-100">تعديل بيانات ومواصفات العطر</h3>
+        </div>
+        <button id="btnCancelForm" class="text-neutral-400 hover:text-cream-100 p-2 rounded-full hover:bg-neutral-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form Body Scrollable -->
+      <form id="perfumeEditForm" class="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
+        
+        <input type="hidden" id="formProdId">
+
+        <!-- Live Preview Row & Core Info -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-6 items-start p-5 rounded-2xl bg-obsidian-900/60 border border-neutral-800">
+          
+          <!-- عمود صورة العطر الرسمية مع إمكانية الرفع والتغيير -->
+          <div class="sm:col-span-4 flex flex-col items-center justify-center p-4 rounded-xl bg-obsidian-950/80 border border-gold-500/30 text-center relative">
+            <span class="text-[11px] font-amiri font-bold text-gold-400 mb-2 block">صورة العطر الرسمية</span>
+            
+            <!-- إطار معاينة الصورة الحية -->
+            <div id="formProdImageWrapper" class="w-32 h-44 rounded-xl bg-obsidian-900 border border-gold-500/25 flex items-center justify-center overflow-hidden relative shadow-lg group hover:border-gold-500/60 transition duration-300">
+              <img id="formProdImagePreview" src="assets/products/sokoon.jpg" alt="صورة العطر" class="w-full h-full object-contain p-1 rounded-lg transition-transform duration-300 group-hover:scale-105">
+              <div id="formProdImagePlaceholder" class="hidden flex-col items-center justify-center p-3 text-neutral-500">
+                <i data-lucide="image" class="w-8 h-8 text-gold-400/50 mb-1"></i>
+                <span class="text-[10px] text-neutral-400">لا توجد صورة</span>
+              </div>
+            </div>
+
+            <!-- أزرار رفع وتغيير وحذف الصورة -->
+            <div class="w-full mt-3 space-y-2">
+              <input type="file" id="formProdImageFileInput" accept="image/*" class="hidden">
+              
+              <button type="button" id="btnTriggerImageUpload" class="w-full py-2 px-3 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 border border-gold-500/40 text-gold-300 hover:text-gold-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                <span>رفع / تغيير الصورة من جهازك</span>
+              </button>
+
+              <button type="button" id="btnRemoveProdImage" class="w-full py-1.5 px-3 rounded-xl border border-neutral-800 hover:border-red-500/40 text-neutral-400 hover:text-red-400 text-[11px] font-medium transition flex items-center justify-center gap-1 cursor-pointer">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>استعادة الصورة الافتراضية</span>
+              </button>
+            </div>
+
+            <!-- خيار إدخال رابط صورة خارجي أو مسار -->
+            <div class="w-full mt-2 pt-2 border-t border-neutral-800/80 text-right">
+              <label class="block text-[10px] text-neutral-400 mb-1 font-sans">أو رابط صورة مباشر (URL):</label>
+              <input type="text" id="formProdImageUrlInput" placeholder="assets/products/... أو https://..." class="w-full px-2.5 py-1.5 rounded-lg bg-obsidian-900 border border-neutral-700 text-[11px] text-cream-100 font-mono focus:border-gold-500 transition text-left" dir="ltr">
+            </div>
+
+          </div>
+
+          <!-- بيانات العطر الأساسية -->
+          <div class="sm:col-span-8 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-neutral-300 mb-1 font-medium">اسم العطر *</label>
+                <input type="text" id="formProdName" required placeholder="مثال: عطر سكون (Sokoon)" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 focus:outline-none focus:border-gold-500 text-right">
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-300 mb-1 font-medium">الماركة أو الدار</label>
+                <input type="text" id="formProdBrand" required value="بيت المسك • BEIT AL-MUSK" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 focus:outline-none focus:border-gold-500 text-right">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs text-neutral-300 mb-1 font-medium">العنوان الفرعي</label>
+                <input type="text" id="formProdSubtitle" placeholder="خلاصة عطرية ملكية" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-300 mb-1 font-medium">درجة التركيز</label>
+                <input type="text" id="formProdConcentration" placeholder="Extrait de Parfum 34%" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-300 mb-1 font-medium">العائلة العطرية</label>
+                <input type="text" id="formProdCategory" placeholder="خشبي ومسكي" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- تصنيف قسم ومنصة العطر (رجالي أم حريمي) -->
+        <div class="p-5 rounded-xl bg-obsidian-900/60 border border-gold-500/30 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span class="text-xs font-bold text-gold-400 font-amiri block">تصنيف قسم ومنصة العطر (رجالي أم حريمي) *</span>
+              <span class="text-[11px] text-neutral-400">حدد تصنيف العطر لتوجيهه تلقائياً إلى المنصة الدوارة وقائمة العرض الخاصة به في المتجر ثلاثي الأبعاد.</span>
+            </div>
+            <span id="formPodiumIndicatorBadge" class="self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-gold-500/20 text-gold-300 border border-gold-500/40">
+              👑 عطر رجالي
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <!-- خيار رجالي -->
+            <label id="podiumOptionMen" class="podium-select-card border-2 border-gold-500 bg-gold-500/10 p-4 rounded-xl cursor-pointer flex items-center justify-between transition-all duration-200 hover:border-gold-400 shadow-sm shadow-gold-500/10">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-gold-500/20 border border-gold-500/40 flex items-center justify-center text-xl flex-shrink-0">
+                  👑
+                </div>
+                <div>
+                  <span class="text-xs font-bold text-cream-100 block">عطر رجالي فاخر (Pour Homme)</span>
+                  <span class="text-[10px] text-neutral-400 block mt-0.5">يدخل الجناح والمنصة الرجالية (قرص الرخام الأسود والذهب)</span>
+                </div>
+              </div>
+              <input type="radio" name="formProdPodium" value="men" checked class="w-4 h-4 text-gold-500 focus:ring-0 cursor-pointer">
+            </label>
+
+            <!-- خيار حريمي -->
+            <label id="podiumOptionWomen" class="podium-select-card border-2 border-neutral-800 bg-obsidian-950/60 p-4 rounded-xl cursor-pointer flex items-center justify-between transition-all duration-200 hover:border-pink-500/50">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-xl flex-shrink-0">
+                  🌸
+                </div>
+                <div>
+                  <span class="text-xs font-bold text-cream-100 block">عطر حريمي ساحر (Pour Femme)</span>
+                  <span class="text-[10px] text-neutral-400 block mt-0.5">يدخل الجناح والمنصة النسائية (قرص الرخام الأبيض وروز جولد)</span>
+                </div>
+              </div>
+              <input type="radio" name="formProdPodium" value="women" class="w-4 h-4 text-pink-500 focus:ring-0 cursor-pointer">
+            </label>
+          </div>
+        </div>
+
+        <!-- Prices & Stock -->
+        <div class="p-5 rounded-xl bg-obsidian-900/60 border border-neutral-800 space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-gold-400 font-amiri">أسعار الأحجام بالدولار ($ USD) والكمية بالمخزون</span>
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" dir="ltr">
+            <div>
+              <label class="block text-[11px] text-neutral-400 mb-1 text-center">30ml Price ($)</label>
+              <input type="number" id="formProdPrice30" required min="1" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-[11px] text-gold-400 font-bold mb-1 text-center">50ml Price ($) *</label>
+              <input type="number" id="formProdPrice50" required min="1" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-[11px] text-neutral-400 mb-1 text-center">100ml Price ($)</label>
+              <input type="number" id="formProdPrice100" required min="1" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-[11px] text-neutral-300 font-bold mb-1 text-center">Stock (العدد)</label>
+              <input type="number" id="formProdStock" required min="0" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-center font-mono focus:border-gold-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Olfactory Pyramid Notes -->
+        <div class="p-5 rounded-xl bg-obsidian-900/60 border border-neutral-800 space-y-4">
+          <span class="text-xs font-bold text-gold-400 font-amiri block">الهرم العطري والنفحات (افصل بين المكونات بفواصل ،):</span>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs text-neutral-300 mb-1">قمة العطر (الافتتاحية)</label>
+              <input type="text" id="formProdTopNotes" placeholder="مسك أبيض، زعفران، برغموت" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-right focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-300 mb-1">قلب وجوهر العطر</label>
+              <input type="text" id="formProdHeartNotes" placeholder="ورد طائفي، ياسمين، بخور" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-right focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-300 mb-1">قاعدة العطر وخاتمته</label>
+              <input type="text" id="formProdBaseNotes" placeholder="مسك الغزال، عود كمبودي، عنبر" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-right focus:border-gold-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Description & Inspiration Story -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-neutral-300 mb-1 font-medium">الوصف العطري للمتجر</label>
+            <textarea id="formProdDescription" rows="3" placeholder="اكتب وصف العطر الجذاب للعميل..." class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right focus:border-gold-500 leading-relaxed"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs text-neutral-300 mb-1 font-medium">حكاية استلهام العطر في بيت المسك</label>
+            <textarea id="formProdStory" rows="3" placeholder="قصة استخلاص العطر وتعتيقه..." class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 text-right focus:border-gold-500 leading-relaxed"></textarea>
+          </div>
+        </div>
+
+        <!-- Colors Customization -->
+        <div class="p-4 rounded-xl bg-obsidian-900/60 border border-neutral-800">
+          <span class="text-xs font-bold text-gold-400 font-amiri block mb-3">تخصيص ألوان العطر ثلاثي الأبعاد والمعاينة:</span>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[11px] text-neutral-400 mb-1 text-center">لون السائل العطري</label>
+              <input type="color" id="formProdLiquidColor" class="w-full h-9 rounded-xl bg-obsidian-950 border border-neutral-700 cursor-pointer">
+            </div>
+            <div>
+              <label class="block text-[11px] text-neutral-400 mb-1 text-center">لون الغطاء المعدني</label>
+              <input type="color" id="formProdCapColor" class="w-full h-9 rounded-xl bg-obsidian-950 border border-neutral-700 cursor-pointer">
+            </div>
+            <div>
+              <label class="block text-[11px] text-neutral-400 mb-1 text-center">لون كشاف الإضاءة</label>
+              <input type="color" id="formProdAccentColor" class="w-full h-9 rounded-xl bg-obsidian-950 border border-neutral-700 cursor-pointer">
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Footer Buttons -->
+        <div class="pt-4 border-t border-neutral-800 flex items-center justify-end gap-3 flex-shrink-0">
+          <button type="button" onclick="AdminPage.closeForm()" class="px-5 py-2.5 rounded-xl border border-neutral-700 text-xs text-neutral-300 font-medium hover:text-cream-100 transition">
+            إلغاء التعديل
+          </button>
+          <button type="submit" class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold tracking-wide transition flex items-center gap-1.5 shadow-lg shadow-gold-500/20">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>حفظ ونشر التعديلات</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+  <!-- =========================================================================
+       4. نافذة تغيير كلمة المرور للإدارة (Change Password Modal)
+       ========================================================================= -->
+  <div id="changePasswordModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-4 flex items-center justify-center" dir="rtl">
+    <div class="w-full max-w-md bg-obsidian-950 border border-gold-500/30 rounded-2xl p-6 sm:p-8 shadow-2xl relative text-right">
+      
+      <div class="flex items-center justify-between border-b border-neutral-800 pb-4 mb-5">
+        <div class="flex items-center gap-2">
+          <span class="text-gold-400 text-xl">🔑</span>
+          <h3 class="font-amiri text-lg font-bold text-cream-100">تغيير رمز مرور الإدارة</h3>
+        </div>
+        <button id="btnCloseChangePassModal" class="text-neutral-400 hover:text-cream-100 p-1 rounded-full">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="changePasswordForm" class="space-y-4">
+        <div>
+          <label class="block text-xs text-neutral-300 mb-1 font-medium">رمز المرور الحالي</label>
+          <input type="password" id="inputCurrentPass" required class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 text-left font-mono" dir="ltr">
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-300 mb-1 font-medium">رمز المرور الجديد</label>
+          <input type="password" id="inputNewPass" required minlength="4" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 text-left font-mono" dir="ltr">
+        </div>
+        <div>
+          <label class="block text-xs text-neutral-300 mb-1 font-medium">تأكيد الرمز الجديد</label>
+          <input type="password" id="inputConfirmNewPass" required minlength="4" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-xs text-cream-100 focus:border-gold-500 text-left font-mono" dir="ltr">
+        </div>
+
+        <div id="changePassError" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs"></div>
+
+        <div class="pt-3 flex justify-end gap-3">
+          <button type="button" id="btnCancelChangePass" class="px-4 py-2 rounded-xl border border-neutral-700 text-xs text-neutral-300 hover:text-cream-100">
+            إلغاء
+          </button>
+          <button type="submit" class="gold-gradient-btn px-5 py-2 rounded-xl text-obsidian-950 text-xs font-bold">
+            حفظ الرمز الجديد
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="adminToastContainer" class="fixed top-20 left-4 sm:left-8 z-50 flex flex-col gap-2 pointer-events-none" dir="rtl"></div>
+
+  <!-- Core Scripts -->
+  <script src="js/products.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/admin-page.js"></script>
+</body>
+</html>
