@@ -478,11 +478,11 @@ const Checkout = {
 
   setupWhatsAppButton(order) {
     const waBtn = document.getElementById("whatsappOrderBtn");
-    if (!waBtn) return;
 
     let itemsListText = "";
     order.items.forEach((it, idx) => {
-      itemsListText += `  ${idx + 1}. *${it.name}* (حجم ${it.size}) × ${it.quantity} — ${(it.unitPrice * it.quantity).toLocaleString()} ج.م\n`;
+      const sizeText = it.size ? ` (${it.size})` : "";
+      itemsListText += `  ${idx + 1}. *${it.name}*${sizeText} × عدد (${it.quantity}) — ${(it.unitPrice * it.quantity).toLocaleString()} ج.م\n`;
     });
 
     const discountText = order.totals.discount > 0 ? `\n🎁 *خصم بيت المسك:* -${order.totals.discount.toLocaleString()} ج.م` : "";
@@ -490,39 +490,41 @@ const Checkout = {
     const settings = Storage.getSettings();
     let transferNote = "";
     if (order.paymentMethodKey === "vodafone_cash" && settings.vodafoneCashNumber) {
-      transferNote = `\n📲 *رقم محفظة فودافون كاش:* ${settings.vodafoneCashNumber}${settings.vodafoneCashName ? ` (${settings.vodafoneCashName})` : ''}`;
+      transferNote = `\n📲 *رقم محفظة فودافون كاش للتحويل:* ${settings.vodafoneCashNumber}${settings.vodafoneCashName ? ` (${settings.vodafoneCashName})` : ''}`;
     } else if (order.paymentMethodKey === "instapay" && settings.instapayAccount) {
-      transferNote = `\n⚡ *حساب إنستا باي:* ${settings.instapayAccount}${settings.instapayName ? ` (${settings.instapayName})` : ''}`;
+      transferNote = `\n⚡ *حساب إنستا باي للتحويل:* ${settings.instapayAccount}${settings.instapayName ? ` (${settings.instapayName})` : ''}`;
     }
 
     const message = 
-`👑 *بيت المسك • BEIT AL-MUSK*
-⚜️ *Leave Your Mark*
-⚜️ *فاتورة تأكيد الطلب*
+`👑 *طلب جديد من متجر بيت المسك • BEIT AL-MUSK*
 ───────────────────────
-⚜️ *رقم الطلب المرجعي:* #${order.orderId}
-📅 *التاريخ:* ${order.formattedDate}
-
-👤 *بيانات العميل الكريم:*
-• *الاسم:* ${order.customer.fullName}
-• *الهاتف:* ${order.customer.phone}
-• *عنوان التوصيل:* ${order.customer.address}
-${order.customer.notes ? `• *ملاحظات التوصيل:* "${order.customer.notes}"\n` : ""}
-📦 *العطور المطلوبة:*
-${itemsListText}
-───────────────────────
+👤 *اسم العميل:* ${order.customer.fullName}
+📞 *رقم التليفون:* ${order.customer.phone}
+📍 *عنوان التوصيل:* ${order.customer.address}
+${order.customer.notes ? `📝 *ملاحظات التوصيل:* "${order.customer.notes}"\n` : ""}───────────────────────
+🛍️ *المنتجات المطلوبة:*
+${itemsListText}───────────────────────
 💵 *المجموع الفرعي:* ${order.totals.subtotal.toLocaleString()} ج.م
-🚚 *مصاريف الشحن:* 50 ج (ثابتة لجميع المحافظات)${discountText}
-✨ *الإجمالي النهائي للدفع:* ${order.totals.grandTotal.toLocaleString()} ج.م
+🚚 *مصاريف الشحن:* 50 ج.م (ثابتة لكافة المحافظات)${discountText}
+💰 *الإجمالي النهائي للفاتورة:* ${order.totals.grandTotal.toLocaleString()} ج.م
 💳 *طريقة الدفع:* ${order.paymentMethod}${transferNote}
+───────────────────────
+⚜️ *رقم الفاتورة:* #${order.orderId}
+📅 *تاريخ الطلب:* ${order.formattedDate}
 
-شكراً لاختياركم بيت المسك.`;
+✨ شكراً لاختياركم بيت المسك • Leave Your Mark`;
 
     const encodedMessage = encodeURIComponent(message);
-    const rawPhone = settings.whatsappNumber || "";
+    const rawPhone = settings.whatsappNumber || "+201012345678";
     const cleanPhone = rawPhone.replace(/[^0-9]/g, "");
-    waBtn.href = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodedMessage}` : `https://wa.me/?text=${encodedMessage}`;
-    waBtn.target = "_blank";
+    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodedMessage}` : `https://wa.me/?text=${encodedMessage}`;
+
+    if (waBtn) {
+      waBtn.href = waUrl;
+      waBtn.target = "_blank";
+    }
+
+    return waUrl;
   },
 
   openInvoiceModal(order) {

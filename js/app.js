@@ -939,14 +939,21 @@ class LuxuryApp {
     const waBtn = document.getElementById("spotlightWhatsAppBtn");
     if (waBtn) {
       waBtn.onclick = () => {
-        const settings = Storage.getSettings();
-        const rawPhone = settings.whatsappNumber || "";
-        const cleanPhone = rawPhone.replace(/[^0-9]/g, "");
-        const unitPrice = product.sizes[this.spotlightSelectedSize]?.price || 245;
-        const total = unitPrice * this.spotlightQuantity;
-        const msg = `مرحباً بيت المسك (BEIT AL-MUSK)، أود طلب عطر "${product.name}" - حجم ${this.spotlightSelectedSize} (العدد: ${this.spotlightQuantity}) بإجمالي ${total.toLocaleString()} ج.م. أرجو تزويدي ببيانات الشحن والتوصيل VIP.`;
-        const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
-        window.open(url, '_blank');
+        // Add product to cart with selected size and quantity
+        Storage.addToCart(product.id, this.spotlightSelectedSize, this.spotlightQuantity);
+        
+        // Close spotlight modal
+        this.closeSpotlight();
+
+        // Open checkout modal immediately so customer enters Name, Phone, and Address
+        if (window.CheckoutUI) {
+          CheckoutUI.openCheckoutModal();
+          this.showToast(
+            "⚜️ استكمال بيانات الشحن",
+            "أدخل اسمك ورقم هاتفك وعنوان التوصيل لتأكيد الطلب وإرسال تفاصيل الفاتورة عبر WhatsApp فوراً.",
+            "info"
+          );
+        }
       };
     }
 
