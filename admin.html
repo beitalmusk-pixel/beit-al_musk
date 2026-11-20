@@ -207,10 +207,10 @@
           <span>بيانات الدفع وأرقام التحويل (كاش / إنستا / تواصل)</span>
         </button>
 
-        <button id="adminTabCouponsBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer">
-          <i data-lucide="tag" class="w-4 h-4"></i>
-          <span>أكواد وقسائم الخصم (بالجنيه)</span>
-          <span id="adminCouponsBadge" class="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-300 text-[10px] font-bold font-mono">0</span>
+        <button id="adminTabDiscountsBtn" type="button" class="admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer">
+          <i data-lucide="percent" class="w-4 h-4"></i>
+          <span>إدارة الخصومات والعروض (بالجنيه)</span>
+          <span id="adminDiscountsBadge" class="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-300 text-[10px] font-bold font-mono">0</span>
         </button>
       </div>
 
@@ -503,201 +503,376 @@
 
       </section>
 
-      <!-- قسم إدارة كوبونات وأكواد الخصم (Coupons & Discounts in EGP) -->
-      <section id="adminCouponsSection" class="hidden space-y-6">
+      <!-- =========================================================================
+           صفحة مركز إدارة الخصومات والعروض الملكية (Discounts & Offers Center)
+           ========================================================================= -->
+      <section id="adminDiscountsSection" class="hidden space-y-8">
         
-        <!-- عنوان القسم وزر الإضافة السريعة -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-neutral-800 pb-4">
+        <!-- عنوان القسم الرئيسي -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-neutral-800 pb-5">
           <div>
-            <h3 class="font-amiri text-2xl font-bold text-cream-100 flex items-center gap-2">
-              <span class="text-gold-400">🏷️</span> إدارة كوبونات وقسائم الخصم بالجنيه المصري (EGP)
+            <h3 class="font-amiri text-2xl sm:text-3xl font-bold text-cream-100 flex items-center gap-2.5">
+              <span class="text-gold-400">🏷️</span> مركز إدارة الخصومات والعروض (بالجنيه المصري)
             </h3>
-            <p class="text-xs text-neutral-400 mt-1">أنشئ أكواد خصم بمبالغ مالية محددة بالجنيه، ليتم تطبيقها فورياً للعملاء في حقيبة التسوق وعند الدفع.</p>
+            <p class="text-xs text-neutral-400 mt-1.5 leading-relaxed">
+              تحكم كامل في خصومات بلوغ حد الفاتورة التلقائي، وأكواد وقسائم الخصم النقدية، والعروض الشاملة لمتجر بيت المسك.
+            </p>
           </div>
 
           <div class="flex items-center gap-2">
-            <button id="btnRefreshCoupons" type="button" class="p-2.5 rounded-xl border border-neutral-700 hover:border-gold-500/40 text-neutral-400 hover:text-gold-400 text-xs transition flex items-center gap-1.5" title="تحديث الكوبونات">
+            <button id="btnRefreshCoupons" type="button" class="px-4 py-2 rounded-xl border border-neutral-700 hover:border-gold-500/40 text-neutral-400 hover:text-gold-400 text-xs transition flex items-center gap-1.5" title="تحديث بيانات الخصومات">
               <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
-              <span>تحديث</span>
+              <span>تحديث العروض</span>
             </button>
           </div>
         </div>
 
-        <!-- بطاقات إحصائيات الكوبونات -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- بطاقات إحصائيات الخصومات العامة -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="glass-card p-4 rounded-2xl border border-gold-500/20 text-right">
-            <span class="text-[11px] text-neutral-400 font-medium">إجمالي الأكواد</span>
+            <span class="text-[11px] text-neutral-400 font-medium">خصم حد الفاتورة</span>
             <div class="flex items-baseline justify-between mt-1">
-              <span id="statTotalCoupons" class="font-mono text-2xl font-bold text-cream-100">0</span>
-              <i data-lucide="tags" class="w-4 h-4 text-gold-500/50"></i>
+              <span id="statThresholdStatusText" class="text-xs font-bold text-amber-400">معطل ⚪</span>
+              <span class="text-base">🎯</span>
+            </div>
+          </div>
+
+          <div class="glass-card p-4 rounded-2xl border border-gold-500/20 text-right">
+            <span class="text-[11px] text-neutral-400 font-medium">الحد المطلوب للفاتورة</span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span id="statThresholdAmountText" class="font-mono text-xl sm:text-2xl font-bold text-cream-100">500 ج.م</span>
+              <i data-lucide="shopping-bag" class="w-4 h-4 text-gold-500/50"></i>
             </div>
           </div>
 
           <div class="glass-card p-4 rounded-2xl border border-emerald-500/20 text-right">
-            <span class="text-[11px] text-neutral-400 font-medium">الكوبونات النشطة</span>
+            <span class="text-[11px] text-neutral-400 font-medium">قيمة خصم الفاتورة</span>
             <div class="flex items-baseline justify-between mt-1">
-              <span id="statActiveCoupons" class="font-mono text-2xl font-bold text-emerald-400">0</span>
-              <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500/50"></i>
+              <span id="statThresholdValueText" class="font-mono text-xl sm:text-2xl font-bold text-emerald-400">-50 ج.م</span>
+              <i data-lucide="sparkles" class="w-4 h-4 text-emerald-500/50"></i>
             </div>
           </div>
 
           <div class="glass-card p-4 rounded-2xl border border-gold-500/20 text-right">
-            <span class="text-[11px] text-neutral-400 font-medium">أعلى خصم متاح بالجنيه</span>
+            <span class="text-[11px] text-neutral-400 font-medium">أكواد الخصم النشطة</span>
             <div class="flex items-baseline justify-between mt-1">
-              <span id="statMaxCouponDiscount" class="font-mono text-2xl font-bold text-gold-400">0 ج.م</span>
-              <i data-lucide="gift" class="w-4 h-4 text-gold-500/50"></i>
+              <span id="statActiveCoupons" class="font-mono text-xl sm:text-2xl font-bold text-gold-400">0</span>
+              <i data-lucide="tags" class="w-4 h-4 text-gold-500/50"></i>
             </div>
           </div>
         </div>
 
-        <!-- نموذج إنشاء كود خصم جديد -->
-        <div class="glass-card p-6 rounded-2xl border border-gold-500/25 space-y-4">
-          <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
-            <h4 class="font-amiri text-lg font-bold text-cream-100 flex items-center gap-2">
-              <i data-lucide="plus-circle" class="w-4 h-4 text-gold-400"></i>
-              <span>إنشاء كود خصم جديد (خصم بالجنيه المصري)</span>
-            </h4>
-            <span class="text-[11px] px-3 py-1 rounded-full bg-gold-500/10 text-gold-400 font-medium border border-gold-500/20">
-              الخصم نقدي ومباشر بالجنيه
-            </span>
+        <!-- =========================================================================
+             1. الخصم التلقائي عند وصول أو تجاوز الفاتورة سعراً معيناً (طلب الإدارة)
+             ========================================================================= -->
+        <div class="glass-card p-6 sm:p-7 rounded-2xl border border-gold-500/30 space-y-5 shadow-xl">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-xl text-gold-400 flex-shrink-0">
+                🎯
+              </div>
+              <div>
+                <h4 class="font-amiri text-xl font-bold text-cream-100 flex items-center gap-2">
+                  <span>الخصم التلقائي عند بلوغ حد الفاتورة</span>
+                  <span class="text-[11px] px-2 py-0.5 rounded-full bg-gold-500/10 text-gold-400 border border-gold-500/25 font-sans font-normal">تلقائي بدون كود</span>
+                </h4>
+                <p class="text-xs text-neutral-400 mt-0.5 leading-relaxed">
+                  يُطبق هذا الخصم تلقائياً وفورياً في حقيبة التسوق والفاتورة عندما تصل قيمة طلب العميل إلى المبلغ المحدد أو تتجاوزه.
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <label class="flex items-center gap-2 cursor-pointer bg-obsidian-950 px-3 py-1.5 rounded-xl border border-neutral-700">
+                <input type="checkbox" id="settingThresholdDiscountEnabled" class="w-4 h-4 rounded text-gold-500 bg-obsidian-900 border-neutral-700 focus:ring-gold-500 cursor-pointer">
+                <span id="thresholdStatusBadge" class="text-xs font-bold text-neutral-400">معطل ⚪</span>
+              </label>
+            </div>
           </div>
 
-          <form id="adminCouponForm" class="space-y-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <!-- رمز الكود -->
+          <form id="adminThresholdDiscountForm" class="space-y-5">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <!-- شرط الفاتورة -->
               <div>
                 <label class="block text-xs text-neutral-300 font-medium mb-1.5">
-                  رمز الكود (Coupon Code) *
+                  الحد الأدنى للفاتورة (إذا بلغت أو تعدت) *
                 </label>
-                <div class="flex items-center gap-2">
+                <div class="relative">
                   <input 
-                    type="text" 
-                    id="inputCouponCode" 
+                    type="number" 
+                    id="settingThresholdAmount" 
                     required 
-                    placeholder="مثال: MUSK50" 
-                    class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 uppercase font-mono text-xs focus:outline-none focus:border-gold-500 transition tracking-wider text-center"
-                    dir="ltr"
+                    min="1" 
+                    step="1" 
+                    placeholder="مثال: 500" 
+                    class="w-full pl-12 pr-3.5 py-3 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 font-mono text-sm font-bold focus:outline-none focus:border-gold-500 transition text-center"
                   >
-                  <button 
-                    type="button" 
-                    id="btnGenerateCouponCode" 
-                    class="px-2.5 py-2.5 rounded-xl border border-neutral-700 hover:border-gold-500/40 text-neutral-400 hover:text-gold-400 text-xs transition" 
-                    title="توليد كود تلقائي"
-                  >
-                    🎲
-                  </button>
+                  <span class="absolute left-3 top-3 text-xs text-gold-400 font-bold pointer-events-none">
+                    ج.م
+                  </span>
                 </div>
+                <span class="text-[10px] text-neutral-500 mt-1 block">قيمة سلة المشتريات لتفعيل الخصم</span>
               </div>
 
               <!-- قيمة الخصم بالجنيه -->
               <div>
                 <label class="block text-xs text-neutral-300 font-medium mb-1.5">
-                  قيمة الخصم بالجنيه (EGP) *
+                  قيمة الخصم المباشر بالجنيه (EGP) *
                 </label>
                 <div class="relative">
                   <input 
                     type="number" 
-                    id="inputCouponValue" 
+                    id="settingThresholdDiscountValue" 
                     required 
                     min="1" 
                     step="1" 
                     placeholder="مثال: 50" 
-                    class="w-full pl-12 pr-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-emerald-400 font-mono text-xs font-bold focus:outline-none focus:border-gold-500 transition text-center"
+                    class="w-full pl-12 pr-3.5 py-3 rounded-xl bg-obsidian-950 border border-neutral-700 text-emerald-400 font-mono text-sm font-bold focus:outline-none focus:border-gold-500 transition text-center"
                   >
-                  <span class="absolute left-3 top-2.5 text-xs text-gold-400 font-bold pointer-events-none">
+                  <span class="absolute left-3 top-3 text-xs text-emerald-400 font-bold pointer-events-none">
                     ج.م
                   </span>
                 </div>
+                <span class="text-[10px] text-neutral-500 mt-1 block">المبلغ الذي يُطرح فورياً من الإجمالي</span>
               </div>
 
-              <!-- الحد الأدنى للطلب -->
+              <!-- مسمى العرض -->
               <div>
                 <label class="block text-xs text-neutral-300 font-medium mb-1.5">
-                  الحد الأدنى للطلب (اختياري)
-                </label>
-                <div class="relative">
-                  <input 
-                    type="number" 
-                    id="inputCouponMinOrder" 
-                    min="0" 
-                    step="1" 
-                    placeholder="0 (بدون حد أدنى)" 
-                    class="w-full pl-12 pr-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 font-mono text-xs focus:outline-none focus:border-gold-500 transition text-center"
-                  >
-                  <span class="absolute left-3 top-2.5 text-xs text-neutral-500 font-bold pointer-events-none">
-                    ج.م
-                  </span>
-                </div>
-              </div>
-
-              <!-- مسمى / وصف الكود للزبون -->
-              <div>
-                <label class="block text-xs text-neutral-300 font-medium mb-1.5">
-                  وصف الكود أو المناسبة
+                  المسمى الظاهر للزبون في السلة والفاتورة
                 </label>
                 <input 
                   type="text" 
-                  id="inputCouponLabel" 
-                  placeholder="مثال: خصم افتتاح المتجر 50 ج.م" 
-                  class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 text-xs focus:outline-none focus:border-gold-500 transition text-right"
+                  id="settingThresholdDiscountLabel" 
+                  placeholder="مثال: خصم الطلبات الأكثر من 500 ج.م" 
+                  class="w-full px-3.5 py-3 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 text-xs focus:outline-none focus:border-gold-500 transition text-right"
                 >
+                <span class="text-[10px] text-neutral-500 mt-1 block">يظهر بجانب الخصم في ملخص الطلب</span>
               </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-              <label class="flex items-center gap-2 cursor-pointer text-xs text-neutral-300">
-                <input type="checkbox" id="inputCouponIsActive" checked class="w-4 h-4 rounded text-gold-500 bg-obsidian-950 border-neutral-700 focus:ring-gold-500">
-                <span>تفعيل الكود فورياً للعملاء في المتجر</span>
-              </label>
+            <!-- صندوق المحاكاة والتوضيح للزبون -->
+            <div class="p-4 rounded-xl bg-obsidian-950/80 border border-gold-500/20 text-xs text-neutral-300 flex items-start gap-3">
+              <span class="text-lg flex-shrink-0">💡</span>
+              <div class="leading-relaxed text-[11px] space-y-1">
+                <strong class="text-gold-400">كيف يرى العميل هذا العرض في المتجر؟</strong> 
+                <p class="text-neutral-400">
+                  عند فتح حقيبة التسوق يظهر شريط تقدم ذكي: 
+                  <span id="simThresholdText" class="text-cream-100 font-medium">«أضف عطوراً إضافية لتصل إلى 500 ج.م وتحصل تلقائياً على خصم 50 ج.م!»</span>
+                  وفور بلوغ المبلغ، يتحول الشريط إلى اللون الأخضر ويُطرح الخصم تلقائياً من المجموع النهائي.
+                </p>
+              </div>
+            </div>
 
+            <div class="flex justify-end pt-1">
               <button 
                 type="submit" 
-                id="btnSaveCoupon" 
-                class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.01] active:scale-[0.99] w-full sm:w-auto"
+                id="btnSaveThresholdDiscount" 
+                class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
               >
-                <i data-lucide="tag" class="w-4 h-4"></i>
-                <span>حفظ ونشر كود الخصم فورياً</span>
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                <span>حفظ وتفعيل خصم الفاتورة فورياً</span>
               </button>
             </div>
           </form>
         </div>
 
-        <!-- جدول الكوبونات المسجلة -->
-        <div class="glass-card rounded-2xl border border-neutral-800 overflow-hidden">
-          <div class="p-4 sm:p-5 border-b border-neutral-800 flex items-center justify-between bg-obsidian-900/60">
-            <h4 class="font-amiri text-lg font-bold text-cream-100 flex items-center gap-2">
-              <i data-lucide="list" class="w-4 h-4 text-gold-400"></i>
-              <span>قائمة أكواد وقسائم الخصم الحالية</span>
-            </h4>
-            <span class="text-xs text-neutral-400" id="couponsListCountText">جاري التحميل...</span>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-right text-xs">
-              <thead>
-                <tr class="border-b border-neutral-800 bg-obsidian-950/80 text-neutral-400 font-amiri text-xs">
-                  <th class="py-3 px-4">كود الخصم</th>
-                  <th class="py-3 px-4 text-center">قيمة الخصم بالجنيه</th>
-                  <th class="py-3 px-4 text-center">الحد الأدنى للطلب</th>
-                  <th class="py-3 px-4">الوصف</th>
-                  <th class="py-3 px-4 text-center">الحالة</th>
-                  <th class="py-3 px-4 text-center">تاريخ الإضافة</th>
-                  <th class="py-3 px-4 text-left">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="adminCouponsTableBody" class="divide-y divide-neutral-800">
-                <!-- Injected via admin-page.js -->
-              </tbody>
-            </table>
-          </div>
-
-          <div id="couponsEmptyState" class="hidden p-12 text-center text-neutral-400 space-y-3">
-            <div class="w-12 h-12 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex items-center justify-center text-2xl mx-auto text-neutral-500">
-              🏷️
+        <!-- =========================================================================
+             2. أكواد وقسائم الخصم بالجنيه المصري (Coupon Codes)
+             ========================================================================= -->
+        <div class="space-y-6">
+          
+          <!-- نموذج إنشاء كود خصم جديد -->
+          <div class="glass-card p-6 rounded-2xl border border-gold-500/25 space-y-4">
+            <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <h4 class="font-amiri text-lg font-bold text-cream-100 flex items-center gap-2">
+                <i data-lucide="plus-circle" class="w-4 h-4 text-gold-400"></i>
+                <span>إنشاء كود خصم جديد (خصم بالجنيه المصري)</span>
+              </h4>
+              <span class="text-[11px] px-3 py-1 rounded-full bg-gold-500/10 text-gold-400 font-medium border border-gold-500/20">
+                قسيمة يدوية يكتبها العميل
+              </span>
             </div>
-            <p class="font-amiri text-base font-bold text-cream-100">لا توجد أكواد خصم مضافة حتى الآن</p>
-            <p class="text-xs text-neutral-500">استخدم النموذج أعلاه لإنشاء كود خصم جديد بالجنيه لزبائن المتجر.</p>
+
+            <form id="adminCouponForm" class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- رمز الكود -->
+                <div>
+                  <label class="block text-xs text-neutral-300 font-medium mb-1.5">
+                    رمز الكود (Coupon Code) *
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      id="inputCouponCode" 
+                      required 
+                      placeholder="مثال: MUSK50" 
+                      class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 uppercase font-mono text-xs focus:outline-none focus:border-gold-500 transition tracking-wider text-center"
+                      dir="ltr"
+                    >
+                    <button 
+                      type="button" 
+                      id="btnGenerateCouponCode" 
+                      class="px-2.5 py-2.5 rounded-xl border border-neutral-700 hover:border-gold-500/40 text-neutral-400 hover:text-gold-400 text-xs transition cursor-pointer" 
+                      title="توليد كود تلقائي"
+                    >
+                      🎲
+                    </button>
+                  </div>
+                </div>
+
+                <!-- قيمة الخصم بالجنيه -->
+                <div>
+                  <label class="block text-xs text-neutral-300 font-medium mb-1.5">
+                    قيمة الخصم بالجنيه (EGP) *
+                  </label>
+                  <div class="relative">
+                    <input 
+                      type="number" 
+                      id="inputCouponValue" 
+                      required 
+                      min="1" 
+                      step="1" 
+                      placeholder="مثال: 50" 
+                      class="w-full pl-12 pr-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-emerald-400 font-mono text-xs font-bold focus:outline-none focus:border-gold-500 transition text-center"
+                    >
+                    <span class="absolute left-3 top-2.5 text-xs text-gold-400 font-bold pointer-events-none">
+                      ج.م
+                    </span>
+                  </div>
+                </div>
+
+                <!-- الحد الأدنى للطلب -->
+                <div>
+                  <label class="block text-xs text-neutral-300 font-medium mb-1.5">
+                    الحد الأدنى للطلب (اختياري)
+                  </label>
+                  <div class="relative">
+                    <input 
+                      type="number" 
+                      id="inputCouponMinOrder" 
+                      min="0" 
+                      step="1" 
+                      placeholder="0 (بدون حد أدنى)" 
+                      class="w-full pl-12 pr-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 font-mono text-xs focus:outline-none focus:border-gold-500 transition text-center"
+                    >
+                    <span class="absolute left-3 top-2.5 text-xs text-neutral-500 font-bold pointer-events-none">
+                      ج.م
+                    </span>
+                  </div>
+                </div>
+
+                <!-- مسمى / وصف الكود للزبون -->
+                <div>
+                  <label class="block text-xs text-neutral-300 font-medium mb-1.5">
+                    وصف الكود أو المناسبة
+                  </label>
+                  <input 
+                    type="text" 
+                    id="inputCouponLabel" 
+                    placeholder="مثال: خصم افتتاح المتجر 50 ج.م" 
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-950 border border-neutral-700 text-cream-100 text-xs focus:outline-none focus:border-gold-500 transition text-right"
+                  >
+                </div>
+              </div>
+
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-neutral-300">
+                  <input type="checkbox" id="inputCouponIsActive" checked class="w-4 h-4 rounded text-gold-500 bg-obsidian-950 border-neutral-700 focus:ring-gold-500">
+                  <span>تفعيل الكود فورياً للعملاء في المتجر</span>
+                </label>
+
+                <button 
+                  type="submit" 
+                  id="btnSaveCoupon" 
+                  class="gold-gradient-btn px-6 py-2.5 rounded-xl text-obsidian-950 text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.01] active:scale-[0.99] w-full sm:w-auto cursor-pointer"
+                >
+                  <i data-lucide="tag" class="w-4 h-4"></i>
+                  <span>حفظ ونشر كود الخصم فورياً</span>
+                </button>
+              </div>
+            </form>
           </div>
+
+          <!-- جدول الكوبونات المسجلة -->
+          <div class="glass-card rounded-2xl border border-neutral-800 overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-neutral-800 flex items-center justify-between bg-obsidian-900/60">
+              <h4 class="font-amiri text-lg font-bold text-cream-100 flex items-center gap-2">
+                <i data-lucide="list" class="w-4 h-4 text-gold-400"></i>
+                <span>قائمة أكواد وقسائم الخصم الحالية</span>
+              </h4>
+              <span class="text-xs text-neutral-400" id="couponsListCountText">جاري التحميل...</span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-right text-xs">
+                <thead>
+                  <tr class="border-b border-neutral-800 bg-obsidian-950/80 text-neutral-400 font-amiri text-xs">
+                    <th class="py-3 px-4">كود الخصم</th>
+                    <th class="py-3 px-4 text-center">قيمة الخصم بالجنيه</th>
+                    <th class="py-3 px-4 text-center">الحد الأدنى للطلب</th>
+                    <th class="py-3 px-4">الوصف</th>
+                    <th class="py-3 px-4 text-center">الحالة</th>
+                    <th class="py-3 px-4 text-center">تاريخ الإضافة</th>
+                    <th class="py-3 px-4 text-left">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="adminCouponsTableBody" class="divide-y divide-neutral-800">
+                  <!-- Injected via admin-page.js -->
+                </tbody>
+              </table>
+            </div>
+
+            <div id="couponsEmptyState" class="hidden p-12 text-center text-neutral-400 space-y-3">
+              <div class="w-12 h-12 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex items-center justify-center text-2xl mx-auto text-neutral-500">
+                🏷️
+              </div>
+              <p class="font-amiri text-base font-bold text-cream-100">لا توجد أكواد خصم مضافة حتى الآن</p>
+              <p class="text-xs text-neutral-500">استخدم النموذج أعلاه لإنشاء كود خصم جديد بالجنيه لزبائن المتجر.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- =========================================================================
+             3. الخصم الشامل المباشر لكامل المتجر (Storewide Percent Discount)
+             ========================================================================= -->
+        <div class="glass-card p-6 rounded-2xl border border-neutral-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+            <h4 class="font-amiri text-lg font-bold text-cream-100 flex items-center gap-2">
+              <i data-lucide="percent" class="w-4 h-4 text-gold-400"></i>
+              <span>الخصم المباشر الشامل للمتجر (Storewide Direct Discount)</span>
+            </h4>
+            <span id="globalDiscountStatusBadge" class="text-xs font-bold text-neutral-400">معطل ⚪</span>
+          </div>
+
+          <form id="adminGlobalDiscountForm" class="space-y-4">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="settingGlobalDiscountEnabled" class="w-4 h-4 rounded text-gold-500 bg-obsidian-950 border-neutral-700 focus:ring-gold-500 cursor-pointer">
+              <label for="settingGlobalDiscountEnabled" class="text-xs font-bold text-cream-100 cursor-pointer">تفعيل خصم عام مباشر على كامل المنتجات</label>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">نسبة الخصم المئوية %</label>
+                <div class="flex items-center gap-2">
+                  <input type="number" id="settingGlobalDiscountPercent" min="0" max="90" placeholder="0" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 font-mono text-center">
+                  <span class="text-gold-400 font-bold">%</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">مسمى العرض / المناسبة</label>
+                <input type="text" id="settingGlobalDiscountLabel" placeholder="خصم بيت المسك الملكي" class="w-full px-3 py-2 rounded-xl bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 text-right">
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" id="btnSaveGlobalDiscount" class="px-5 py-2 rounded-xl border border-gold-500/40 text-gold-300 hover:bg-gold-500/10 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>حفظ الخصم الشامل</span>
+              </button>
+            </div>
+          </form>
         </div>
 
       </section>

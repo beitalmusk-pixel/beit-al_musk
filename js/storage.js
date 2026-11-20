@@ -35,6 +35,11 @@ const DEFAULT_SETTINGS = {
   globalDiscountEnabled: false,
   globalDiscountPercent: 0,
   globalDiscountLabel: "خصم بيت المسك",
+  // الخصم التلقائي عند وصول الفاتورة لسعر معين (طلب الإدارة)
+  thresholdDiscountEnabled: false,
+  thresholdAmount: 500, // حد الفاتورة بالجنيه
+  thresholdDiscountValue: 50, // قيمة الخصم بالجنيه
+  thresholdDiscountLabel: "خصم الطلبات الأكثر من 500 ج.م",
   deliveryFee: 50,
   promos: {}
 };
@@ -365,27 +370,50 @@ const Storage = {
 
     let discount = 0;
     let discountLabel = "";
+    let thresholdDiscount = 0;
+    let thresholdLabel = "";
 
     // 1. Store-wide Global Direct Discount if active
+    let globalDisc = 0;
     if (settings.globalDiscountEnabled && settings.globalDiscountPercent > 0 && subtotal > 0) {
-      const globalDisc = Math.round((subtotal * settings.globalDiscountPercent) / 100);
+      globalDisc = Math.round((subtotal * settings.globalDiscountPercent) / 100);
       discount = globalDisc;
       discountLabel = `${settings.globalDiscountLabel || 'خصم المتجر'} (${settings.globalDiscountPercent}%)`;
     }
 
-    // 2. Promo Code Discount (Fixed EGP or Percent)
+    // 2. Automatic Invoice Threshold Discount (خصم بلوغ حد الفاتورة بالجنيه)
+    const isThresholdActive = !!settings.thresholdDiscountEnabled;
+    const thresholdAmount = Number(settings.thresholdAmount) || 0;
+    const thresholdValue = Number(settings.thresholdDiscountValue) || 0;
+    const isThresholdReached = isThresholdActive && thresholdAmount > 0 && thresholdValue > 0 && subtotal >= thresholdAmount;
+
+    if (isThresholdReached) {
+      thresholdDiscount = Math.min(subtotal, thresholdValue);
+      thresholdLabel = settings.thresholdDiscountLabel || `خصم الفاتورة فوق ${thresholdAmount} ج.م`;
+      if (thresholdDiscount > discount) {
+        discount = thresholdDiscount;
+        discountLabel = thresholdLabel;
+      }
+    }
+
+    // 3. Promo Code Discount (Fixed EGP or Percent)
+    let promoDisc = 0;
     if (promo && subtotal > 0) {
       const isEligible = !promo.min_order_amount || subtotal >= promo.min_order_amount;
       if (isEligible && promo.is_active !== false) {
-        let promoDisc = 0;
         if (promo.type === "percent") {
           promoDisc = Math.round((subtotal * promo.value) / 100);
         } else {
           // fixed cash discount in EGP (خصم مباشر بالجنيه)
           promoDisc = Math.min(subtotal, promo.value);
         }
-        // Apply best or stack discount
-        if (promoDisc > discount) {
+
+        // Stacking: If customer reached the invoice threshold AND also entered a valid promo code!
+        if (isThresholdReached && thresholdDiscount > 0) {
+          const combined = Math.min(subtotal, thresholdDiscount + promoDisc);
+          discount = combined;
+          discountLabel = `${thresholdLabel} + كود (${promo.code})`;
+        } else if (promoDisc > discount) {
           discount = promoDisc;
           discountLabel = promo.label || `خصم ${promo.value} ج.م (${promo.code})`;
         }
@@ -405,6 +433,13 @@ const Storage = {
       discountLabel,
       promo,
       globalDiscount: settings.globalDiscountEnabled ? settings.globalDiscountPercent : 0,
+      thresholdDiscount,
+      thresholdLabel,
+      thresholdAmount,
+      thresholdValue,
+      isThresholdActive,
+      isThresholdReached,
+      thresholdRemaining: Math.max(0, thresholdAmount - subtotal),
       grandTotal
     };
   },

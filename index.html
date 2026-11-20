@@ -615,6 +615,20 @@
       <p id="deliveryProgressText" class="text-[11px] text-neutral-400 mt-1 leading-tight">
         شحن مبرد ومؤمن بالكامل يضمن وصول العطر بأعلى معايير النقاء والثبات.
       </p>
+
+      <!-- شريط حافز خصم الفاتورة التلقائي -->
+      <div id="cartThresholdNotice" class="hidden mt-3 p-3 rounded-xl bg-gold-500/10 border border-gold-500/30 text-xs text-gold-300 transition space-y-1.5">
+        <div class="flex items-center justify-between font-bold">
+          <span id="cartThresholdText" class="flex items-center gap-1.5">
+            <span class="text-sm">🎁</span>
+            <span id="cartThresholdMsg">أضف عطوراً إضافية لتحصل على خصم فوري!</span>
+          </span>
+          <span id="cartThresholdBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-300 font-mono">0%</span>
+        </div>
+        <div class="w-full h-1.5 bg-obsidian-950 rounded-full overflow-hidden border border-gold-500/20">
+          <div id="cartThresholdProgressBar" class="h-full bg-gold-500 transition-all duration-500 rounded-full" style="width: 0%"></div>
+        </div>
+      </div>
     </div>
 
     <div id="cartItemsList" class="flex-1 overflow-y-auto p-6 space-y-3">

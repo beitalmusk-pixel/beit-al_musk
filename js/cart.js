@@ -271,6 +271,34 @@ const CartUI = {
       this.deliveryProgressBar.className = "h-full bg-gold-500/80 transition-all duration-500";
     }
 
+    // Threshold Milestone / Incentive Notice
+    const thresholdNotice = document.getElementById("cartThresholdNotice");
+    const thresholdMsg = document.getElementById("cartThresholdMsg");
+    const thresholdBadge = document.getElementById("cartThresholdBadge");
+    const thresholdProgress = document.getElementById("cartThresholdProgressBar");
+
+    if (thresholdNotice) {
+      if (totals.isThresholdActive && totals.thresholdAmount > 0 && totals.thresholdValue > 0 && totals.subtotal > 0) {
+        thresholdNotice.classList.remove("hidden");
+        const pct = Math.min(100, Math.round((totals.subtotal / totals.thresholdAmount) * 100));
+        if (thresholdProgress) thresholdProgress.style.width = `${pct}%`;
+        if (thresholdBadge) thresholdBadge.textContent = `${pct}%`;
+
+        if (totals.isThresholdReached) {
+          thresholdNotice.className = "mt-3 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-xs text-emerald-300 transition space-y-1.5 shadow-sm";
+          if (thresholdMsg) thresholdMsg.innerHTML = `🎉 <strong>مبروك!</strong> تم تفعيل خصم <strong>${totals.thresholdValue} ج.م</strong> تلقائياً لتجاوزك ${totals.thresholdAmount} ج.م!`;
+          if (thresholdProgress) thresholdProgress.className = "h-full bg-emerald-400 transition-all duration-500 rounded-full";
+        } else {
+          thresholdNotice.className = "mt-3 p-3 rounded-xl bg-gold-500/10 border border-gold-500/30 text-xs text-gold-300 transition space-y-1.5";
+          const remaining = totals.thresholdRemaining;
+          if (thresholdMsg) thresholdMsg.innerHTML = `✨ أضف عطوراً بـ <strong class="font-mono text-cream-100">${remaining.toLocaleString()} ج.م</strong> إضافية لتحصل على <strong>خصم ${totals.thresholdValue} ج.م</strong> فوري!`;
+          if (thresholdProgress) thresholdProgress.className = "h-full bg-gold-500 transition-all duration-500 rounded-full";
+        }
+      } else {
+        thresholdNotice.classList.add("hidden");
+      }
+    }
+
     // Promo / Store Discount Row
     if (this.cartDiscountRow && this.cartDiscountEl) {
       if (totals.discount > 0) {

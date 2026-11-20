@@ -207,6 +207,7 @@ const AdminPage = {
       if (dashboard) dashboard.classList.remove("hidden");
       this.refreshData();
       this.initOrdersListener();
+      this.loadDiscountsSettings();
       this.loadCoupons();
       if (window.lucide) lucide.createIcons({ root: dashboard });
     } else {
@@ -383,12 +384,46 @@ const AdminPage = {
       this.switchTab("payment");
     });
 
-    // --- Tab Switching for Coupons ---
-    document.getElementById("adminTabCouponsBtn")?.addEventListener("click", () => {
-      this.switchTab("coupons");
+    // --- Tab Switching for Discounts & Offers Page ---
+    const handleDiscountsTab = () => this.switchTab("discounts");
+    document.getElementById("adminTabDiscountsBtn")?.addEventListener("click", handleDiscountsTab);
+    document.getElementById("adminTabCouponsBtn")?.addEventListener("click", handleDiscountsTab);
+
+    // Threshold discount form
+    document.getElementById("adminThresholdDiscountForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      this.saveThresholdDiscountSettings();
+    });
+
+    document.getElementById("settingThresholdDiscountEnabled")?.addEventListener("change", (e) => {
+      const badge = document.getElementById("thresholdStatusBadge");
+      if (badge) {
+        badge.textContent = e.target.checked ? "مفعّل 🟢" : "معطل ⚪";
+        badge.className = e.target.checked ? "text-xs font-bold text-emerald-400" : "text-xs font-bold text-neutral-400";
+      }
+    });
+
+    // Simulation updater
+    ["settingThresholdAmount", "settingThresholdDiscountValue"].forEach(id => {
+      document.getElementById(id)?.addEventListener("input", () => this.updateThresholdSimulation());
+    });
+
+    // Global discount form
+    document.getElementById("adminGlobalDiscountForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      this.saveGlobalDiscountSettings();
+    });
+
+    document.getElementById("settingGlobalDiscountEnabled")?.addEventListener("change", (e) => {
+      const badge = document.getElementById("globalDiscountStatusBadge");
+      if (badge) {
+        badge.textContent = e.target.checked ? "مفعّل 🟢" : "معطل ⚪";
+        badge.className = e.target.checked ? "text-xs font-bold text-emerald-400" : "text-xs font-bold text-neutral-400";
+      }
     });
 
     document.getElementById("btnRefreshCoupons")?.addEventListener("click", () => {
+      this.loadDiscountsSettings();
       this.loadCoupons();
     });
 
@@ -583,36 +618,40 @@ const AdminPage = {
   },
 
   switchTab(tabName) {
-    this.currentTab = tabName;
+    const isDiscounts = tabName === "coupons" || tabName === "discounts";
+    this.currentTab = isDiscounts ? "discounts" : tabName;
+
     const tabProdBtn = document.getElementById("adminTabProductsBtn");
     const tabOrdersBtn = document.getElementById("adminTabOrdersBtn");
     const tabPayBtn = document.getElementById("adminTabPaymentBtn");
-    const tabCouponsBtn = document.getElementById("adminTabCouponsBtn");
+    const tabDiscountsBtn = document.getElementById("adminTabDiscountsBtn") || document.getElementById("adminTabCouponsBtn");
+
     const prodSection = document.getElementById("adminProductsSection");
     const ordersSection = document.getElementById("adminOrdersSection");
     const paySection = document.getElementById("adminPaymentSection");
-    const couponsSection = document.getElementById("adminCouponsSection");
+    const discountsSection = document.getElementById("adminDiscountsSection") || document.getElementById("adminCouponsSection");
 
     const activeClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-gold-500/50 bg-gold-500/20 text-gold-300 shadow-sm shadow-gold-500/10 cursor-pointer";
     const inactiveClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer";
 
-    if (tabProdBtn) tabProdBtn.className = tabName === "products" ? activeClass : inactiveClass;
-    if (tabOrdersBtn) tabOrdersBtn.className = tabName === "orders" ? activeClass : inactiveClass;
-    if (tabPayBtn) tabPayBtn.className = tabName === "payment" ? activeClass : inactiveClass;
-    if (tabCouponsBtn) tabCouponsBtn.className = tabName === "coupons" ? activeClass : inactiveClass;
+    if (tabProdBtn) tabProdBtn.className = this.currentTab === "products" ? activeClass : inactiveClass;
+    if (tabOrdersBtn) tabOrdersBtn.className = this.currentTab === "orders" ? activeClass : inactiveClass;
+    if (tabPayBtn) tabPayBtn.className = this.currentTab === "payment" ? activeClass : inactiveClass;
+    if (tabDiscountsBtn) tabDiscountsBtn.className = this.currentTab === "discounts" ? activeClass : inactiveClass;
 
-    if (prodSection) prodSection.classList.toggle("hidden", tabName !== "products");
-    if (ordersSection) ordersSection.classList.toggle("hidden", tabName !== "orders");
-    if (paySection) paySection.classList.toggle("hidden", tabName !== "payment");
-    if (couponsSection) couponsSection.classList.toggle("hidden", tabName !== "coupons");
+    if (prodSection) prodSection.classList.toggle("hidden", this.currentTab !== "products");
+    if (ordersSection) ordersSection.classList.toggle("hidden", this.currentTab !== "orders");
+    if (paySection) paySection.classList.toggle("hidden", this.currentTab !== "payment");
+    if (discountsSection) discountsSection.classList.toggle("hidden", this.currentTab !== "discounts");
 
-    if (tabName === "products") {
+    if (this.currentTab === "products") {
       this.refreshData();
-    } else if (tabName === "orders") {
+    } else if (this.currentTab === "orders") {
       this.loadOrders();
-    } else if (tabName === "payment") {
+    } else if (this.currentTab === "payment") {
       this.loadPaymentSettings();
-    } else if (tabName === "coupons") {
+    } else if (this.currentTab === "discounts") {
+      this.loadDiscountsSettings();
       this.loadCoupons();
     }
 
@@ -1378,6 +1417,154 @@ const AdminPage = {
   },
 
   // =========================================================================
+  // --- مركز إدارة الخصومات والعروض (Discounts & Offers Center) ---
+  // =========================================================================
+  loadDiscountsSettings() {
+    const settings = Storage.getSettings();
+
+    // 1. Automatic Invoice Threshold Discount
+    const thresholdEnabled = !!settings.thresholdDiscountEnabled;
+    const thresholdAmount = settings.thresholdAmount || 500;
+    const thresholdValue = settings.thresholdDiscountValue || 50;
+    const thresholdLabel = settings.thresholdDiscountLabel || `خصم الطلبات الأكثر من ${thresholdAmount} ج.م`;
+
+    const thresholdCheck = document.getElementById("settingThresholdDiscountEnabled");
+    const thresholdAmountInput = document.getElementById("settingThresholdAmount");
+    const thresholdValueInput = document.getElementById("settingThresholdDiscountValue");
+    const thresholdLabelInput = document.getElementById("settingThresholdDiscountLabel");
+    const thresholdBadge = document.getElementById("thresholdStatusBadge");
+
+    if (thresholdCheck) thresholdCheck.checked = thresholdEnabled;
+    if (thresholdAmountInput) thresholdAmountInput.value = thresholdAmount;
+    if (thresholdValueInput) thresholdValueInput.value = thresholdValue;
+    if (thresholdLabelInput) thresholdLabelInput.value = thresholdLabel;
+    if (thresholdBadge) {
+      thresholdBadge.textContent = thresholdEnabled ? "مفعّل 🟢" : "معطل ⚪";
+      thresholdBadge.className = thresholdEnabled ? "text-xs font-bold text-emerald-400" : "text-xs font-bold text-neutral-400";
+    }
+
+    // 2. Global Storewide Discount
+    const globalEnabled = !!settings.globalDiscountEnabled;
+    const globalPercent = settings.globalDiscountPercent || 0;
+    const globalLabel = settings.globalDiscountLabel || "خصم بيت المسك الملكي";
+
+    const globalCheck = document.getElementById("settingGlobalDiscountEnabled");
+    const globalPercentInput = document.getElementById("settingGlobalDiscountPercent");
+    const globalLabelInput = document.getElementById("settingGlobalDiscountLabel");
+    const globalBadge = document.getElementById("globalDiscountStatusBadge");
+
+    if (globalCheck) globalCheck.checked = globalEnabled;
+    if (globalPercentInput) globalPercentInput.value = globalPercent;
+    if (globalLabelInput) globalLabelInput.value = globalLabel;
+    if (globalBadge) {
+      globalBadge.textContent = globalEnabled ? "مفعّل 🟢" : "معطل ⚪";
+      globalBadge.className = globalEnabled ? "text-xs font-bold text-emerald-400" : "text-xs font-bold text-neutral-400";
+    }
+
+    this.updateThresholdSimulation();
+    this.updateThresholdOverviewStats();
+  },
+
+  updateThresholdSimulation() {
+    const amount = Number(document.getElementById("settingThresholdAmount")?.value) || 500;
+    const value = Number(document.getElementById("settingThresholdDiscountValue")?.value) || 50;
+    const simText = document.getElementById("simThresholdText");
+    if (simText) {
+      simText.textContent = `«أضف عطوراً إضافية لتصل إلى ${amount.toLocaleString()} ج.م وتحصل تلقائياً على خصم ${value.toLocaleString()} ج.م!»`;
+    }
+  },
+
+  updateThresholdOverviewStats() {
+    const settings = Storage.getSettings();
+    const statStatus = document.getElementById("statThresholdStatusText");
+    const statAmount = document.getElementById("statThresholdAmountText");
+    const statValue = document.getElementById("statThresholdValueText");
+
+    const isEnabled = !!settings.thresholdDiscountEnabled;
+    const amount = settings.thresholdAmount || 500;
+    const value = settings.thresholdDiscountValue || 50;
+
+    if (statStatus) {
+      statStatus.textContent = isEnabled ? "نشط 🟢" : "معطل ⚪";
+      statStatus.className = isEnabled ? "text-xs font-bold text-emerald-400" : "text-xs font-bold text-amber-400";
+    }
+    if (statAmount) statAmount.textContent = `${amount.toLocaleString()} ج.م`;
+    if (statValue) statValue.textContent = `-${value.toLocaleString()} ج.م`;
+  },
+
+  async saveThresholdDiscountSettings() {
+    const enabled = !!document.getElementById("settingThresholdDiscountEnabled")?.checked;
+    const amount = parseInt(document.getElementById("settingThresholdAmount")?.value, 10);
+    const value = parseInt(document.getElementById("settingThresholdDiscountValue")?.value, 10);
+    const label = (document.getElementById("settingThresholdDiscountLabel")?.value || "").trim() || `خصم الطلبات الأكثر من ${amount} ج.م`;
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      alert("يرجى إدخال الحد الأدنى لقيمة الفاتورة بالجنيه (مثال: 500 ج.م)");
+      document.getElementById("settingThresholdAmount")?.focus();
+      return;
+    }
+
+    if (!value || isNaN(value) || value <= 0) {
+      alert("يرجى إدخال قيمة الخصم بالجنيه (مثال: 50 ج.م)");
+      document.getElementById("settingThresholdDiscountValue")?.focus();
+      return;
+    }
+
+    const current = Storage.getSettings();
+    const updated = {
+      ...current,
+      thresholdDiscountEnabled: enabled,
+      thresholdAmount: amount,
+      thresholdDiscountValue: value,
+      thresholdDiscountLabel: label
+    };
+
+    Storage.saveSettings(updated);
+
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      SupabaseDB.saveSettings(updated).catch(e => console.warn("Supabase saveSettings note:", e));
+    }
+
+    this.showToast(
+      "تم حفظ خصم الفاتورة 🎯",
+      enabled 
+        ? `تم تفعيل خصم ${value} ج.م تلقائياً عند وصول الفاتورة إلى ${amount} ج.م أو أكثر!`
+        : "تم تعطيل الخصم التلقائي للفاتورة بنجاح.",
+      "success"
+    );
+
+    this.loadDiscountsSettings();
+  },
+
+  async saveGlobalDiscountSettings() {
+    const enabled = !!document.getElementById("settingGlobalDiscountEnabled")?.checked;
+    const percent = parseInt(document.getElementById("settingGlobalDiscountPercent")?.value, 10) || 0;
+    const label = (document.getElementById("settingGlobalDiscountLabel")?.value || "").trim() || "خصم بيت المسك الملكي";
+
+    const current = Storage.getSettings();
+    const updated = {
+      ...current,
+      globalDiscountEnabled: enabled,
+      globalDiscountPercent: percent,
+      globalDiscountLabel: label
+    };
+
+    Storage.saveSettings(updated);
+
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      SupabaseDB.saveSettings(updated).catch(e => console.warn("Supabase saveSettings note:", e));
+    }
+
+    this.showToast(
+      "تم حفظ الخصم الشامل 🌟",
+      enabled ? `تم تفعيل خصم ${percent}% على كامل المتجر.` : "تم تعطيل الخصم العام الشامل.",
+      "success"
+    );
+
+    this.loadDiscountsSettings();
+  },
+
+  // =========================================================================
   // --- إدارة كوبونات وقسائم الخصم بالجنيه المصري (Coupons in EGP) ---
   // =========================================================================
   async loadCoupons() {
@@ -1403,7 +1590,7 @@ const AdminPage = {
     const totalEl = document.getElementById("statTotalCoupons");
     const activeEl = document.getElementById("statActiveCoupons");
     const maxEl = document.getElementById("statMaxCouponDiscount");
-    const badge = document.getElementById("adminCouponsBadge");
+    const badge = document.getElementById("adminDiscountsBadge") || document.getElementById("adminCouponsBadge");
     const listCount = document.getElementById("couponsListCountText");
 
     const total = coupons.length;
