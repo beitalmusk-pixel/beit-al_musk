@@ -6,6 +6,12 @@
   <meta name="robots" content="noindex, nofollow">
   <title>بوابة إدارة بيت المسك الملكية | BEIT AL-MUSK ADMIN</title>
   <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+  <link rel="apple-touch-icon" href="assets/logo.jpg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#060508">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Google Fonts & Tailwind CDN -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -183,6 +189,11 @@
             <i data-lucide="database" class="w-3.5 h-3.5"></i>
             <span id="supabaseStatusText">قاعدة البيانات: متصلة (Supabase) 🟢</span>
           </button>
+
+          <a href="beitalmusk-deploy.zip" download="beitalmusk-deploy.zip" id="btnDownloadBackup" class="px-3.5 py-2 rounded-full border border-gold-500/30 hover:border-gold-500/60 bg-gold-500/10 text-xs text-gold-300 hover:text-gold-200 transition flex items-center gap-1.5 shadow-sm" title="تنزيل نسخة كاملة من كود وملفات المتجر (ZIP)">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>تنزيل ملفات الويب (ZIP)</span>
+          </a>
 
           <button id="btnOpenChangePassModal" class="px-3.5 py-2 rounded-full border border-neutral-700 hover:border-gold-500/50 bg-obsidian-950/80 text-xs text-neutral-300 hover:text-gold-400 transition flex items-center gap-1.5" title="تغيير كلمة المرور">
             <i data-lucide="key" class="w-3.5 h-3.5"></i>

@@ -6,7 +6,12 @@
   <title>بيت المسك | BEIT AL-MUSK • Leave Your Mark</title>
   <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
   <link rel="apple-touch-icon" href="assets/logo.jpg">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#060508">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="بيت المسك">
   <meta name="description" content="عِش تجربة الفخامة الملكية مع أرقى عطور بيت المسك. دهن المسك الصافي، والعود المعتق، ومعرض تفاعلي ثلاثي الأبعاد، وتوصيل VIP مبرد حتى باب القصر.">
   <link rel="canonical" href="https://beitalmusk-pixel.github.io/beit-al_musk/">
   
@@ -108,7 +113,12 @@
       </a>
 
       <!-- أزرار الإجراءات -->
-      <div class="flex items-center gap-3 sm:gap-4">
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <button id="btnPwaInstall" class="px-3 py-1.5 rounded-full border border-gold-500/40 bg-gold-500/10 text-gold-300 hover:text-gold-200 hover:bg-gold-500/20 transition text-xs font-bold flex items-center gap-1.5 shadow-sm" title="تثبيت تطبيق بيت المسك على جهازك">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">تثبيت التطبيق</span>
+        </button>
+
         <button id="toggleAutoRotateBtn" class="p-2.5 rounded-full border border-neutral-800 text-neutral-400 hover:text-gold-400 hover:border-gold-500/40 transition text-xs flex items-center gap-1" title="تشغيل / إيقاف الدوران التلقائي 3D">
           <i data-lucide="rotate-3d" class="w-4 h-4"></i>
         </button>
@@ -1544,5 +1554,74 @@
   <script src="js/checkout.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- شريط / بطاقة تثبيت تطبيق الويب الملكي (PWA Install Banner) -->
+  <div id="pwaInstallBanner" class="hidden fixed bottom-20 sm:bottom-6 left-4 sm:left-6 z-40 bg-obsidian-900/95 border border-gold-500/40 rounded-2xl p-3 sm:p-4 shadow-2xl backdrop-blur-xl max-w-xs text-right" dir="rtl">
+    <div class="flex items-center gap-3 mb-2.5">
+      <img src="assets/logo.jpg" alt="تطبيق بيت المسك" class="w-10 h-10 rounded-xl border border-gold-500/30 object-contain shadow-md">
+      <div class="flex-1">
+        <h6 class="font-amiri font-bold text-sm text-cream-100 gold-gradient-text">تطبيق بيت المسك</h6>
+        <p class="text-[10px] text-neutral-400">تثبيت فوري على شاشة جهازك والعمل في الخلفية</p>
+      </div>
+      <button id="btnClosePwaBanner" class="text-neutral-500 hover:text-cream-100 p-1" title="إغلاق">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+    <button id="btnConfirmPwaInstall" class="w-full gold-gradient-btn py-2 px-3 rounded-xl text-obsidian-950 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-gold-500/20">
+      <i data-lucide="download" class="w-3.5 h-3.5"></i>
+      <span>تثبيت التطبيق الآن 📲</span>
+    </button>
+  </div>
+
+  <!-- PWA Install & Service Worker Controller -->
+  <script>
+    (function() {
+      let deferredPrompt = null;
+      const pwaBtn = document.getElementById('btnPwaInstall');
+      const pwaBanner = document.getElementById('pwaInstallBanner');
+      const confirmPwaBtn = document.getElementById('btnConfirmPwaInstall');
+      const closePwaBannerBtn = document.getElementById('btnClosePwaBanner');
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (pwaBtn) pwaBtn.classList.remove('hidden');
+        if (pwaBanner && !sessionStorage.getItem('pwa_dismissed')) {
+          setTimeout(() => {
+            pwaBanner.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons({ root: pwaBanner });
+          }, 2000);
+        }
+      });
+
+      const triggerPwaInstall = async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            console.log('PWA installation accepted');
+          }
+          deferredPrompt = null;
+          if (pwaBanner) pwaBanner.classList.add('hidden');
+        } else {
+          alert('لتثبيت تطبيق بيت المسك على هاتفك أو جهازك:\n- من متصفح كروم / إيدج: اضغط على القائمة (⋮) ثم اختر "تثبيت التطبيق (Install App)" أو "إضافة إلى الشاشة الرئيسية (Add to Home Screen)".\n- من متصفح سفاري (آيفون): اضغط على زر المشاركة ثم "إضافة إلى الصفحة الرئيسية".');
+        }
+      };
+
+      pwaBtn?.addEventListener('click', triggerPwaInstall);
+      confirmPwaBtn?.addEventListener('click', triggerPwaInstall);
+      closePwaBannerBtn?.addEventListener('click', () => {
+        if (pwaBanner) pwaBanner.classList.add('hidden');
+        sessionStorage.setItem('pwa_dismissed', 'true');
+      });
+
+      // Service Worker Registration for background offline caching
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg note:', err));
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

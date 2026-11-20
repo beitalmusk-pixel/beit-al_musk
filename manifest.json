@@ -1,0 +1,26 @@
+{
+  "name": "بيت المسك • BEIT AL-MUSK",
+  "short_name": "بيت المسك",
+  "description": "دار العطور الملكية الفاخرة • Leave Your Mark",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#060508",
+  "theme_color": "#060508",
+  "icons": [
+    {
+      "src": "assets/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "lifestyle"]
+}
