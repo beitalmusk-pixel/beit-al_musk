@@ -65,8 +65,8 @@ const AdminPage = {
 
     if (btnText) {
       btnText.innerHTML = isReady
-        ? `<span>Supabase: متصل</span> <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>`
-        : `<span>Supabase: محلي</span> <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>`;
+        ? `<span>قاعدة البيانات: متصلة (Supabase)</span> <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>`
+        : `<span>قاعدة البيانات: محلي</span> <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>`;
     }
 
     if (banner && title && desc && icon) {
