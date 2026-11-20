@@ -39,8 +39,110 @@ const AdminPage = {
   async init() {
     this.checkAuth();
     this.bindEvents();
+    await this.initSupabase();
     await this.initCloud();
     if (window.lucide) lucide.createIcons();
+  },
+
+  async initSupabase() {
+    if (window.SupabaseDB) {
+      try {
+        await SupabaseDB.init();
+      } catch (e) {
+        console.warn("SupabaseDB init note:", e);
+      }
+    }
+    this.updateSupabaseStatusUI();
+  },
+
+  updateSupabaseStatusUI() {
+    const isReady = window.SupabaseDB && SupabaseDB.isReady();
+    const btnText = document.getElementById("supabaseStatusText");
+    const banner = document.getElementById("supabaseStatusBanner");
+    const icon = document.getElementById("supabaseStatusIcon");
+    const title = document.getElementById("supabaseStatusTitle");
+    const desc = document.getElementById("supabaseStatusDesc");
+
+    if (btnText) {
+      btnText.innerHTML = isReady
+        ? `<span>Supabase: متصل</span> <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>`
+        : `<span>Supabase: محلي</span> <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>`;
+    }
+
+    if (banner && title && desc && icon) {
+      if (isReady) {
+        banner.className = "p-4 rounded-xl border mb-6 text-xs flex items-center gap-3 bg-emerald-950/40 border-emerald-500/30";
+        icon.textContent = "🟢";
+        title.textContent = "حالة الاتصال: سحابة Supabase نشطة (PostgreSQL & RLS Active)";
+        desc.textContent = "جميع العطور والأسعار والتعديلات والطلبات متصلة بقاعدة بيانات PostgreSQL حقيقية ومحمية بصلاحيات Row Level Security.";
+      } else {
+        banner.className = "p-4 rounded-xl border mb-6 text-xs flex items-center gap-3 bg-amber-950/30 border-amber-500/30";
+        icon.textContent = "🟡";
+        title.textContent = "حالة الاتصال: وضع محلي (Local Mode)";
+        desc.textContent = "أدخل رابط مشروع Supabase والمفتاح العام (anon key) لربط قاعدة البيانات PostgreSQL وتفعيل صلاحيات RLS.";
+      }
+    }
+
+    if (window.SupabaseConfig) {
+      const cfg = SupabaseConfig.getConfig();
+      if (cfg) {
+        document.getElementById("supabaseUrlInput") && (document.getElementById("supabaseUrlInput").value = cfg.url || "");
+        document.getElementById("supabaseAnonKeyInput") && (document.getElementById("supabaseAnonKeyInput").value = cfg.anonKey || "");
+      }
+    }
+  },
+
+  openSupabaseModal() {
+    this.updateSupabaseStatusUI();
+    const modal = document.getElementById("supabaseSyncModal");
+    if (modal) modal.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons();
+  },
+
+  closeSupabaseModal() {
+    const modal = document.getElementById("supabaseSyncModal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  async handleSaveSupabaseConfig() {
+    const url = document.getElementById("supabaseUrlInput")?.value.trim();
+    const anonKey = document.getElementById("supabaseAnonKeyInput")?.value.trim();
+
+    if (!url || !anonKey) {
+      alert("يرجى إدخال Supabase Project URL و Anon Public Key.");
+      return;
+    }
+
+    try {
+      window.SupabaseConfig.saveConfig(url, anonKey);
+      this.showToast("جاري الاتصال بـ Supabase", "جاري اختبار الاتصال بقاعدة بيانات PostgreSQL...", "info");
+
+      const success = await SupabaseDB.init();
+      if (success) {
+        this.updateSupabaseStatusUI();
+        this.closeSupabaseModal();
+        this.showToast("تم الربط مع Supabase بنجاح ⚡", "متجرك متصل الآن بقاعدة بيانات PostgreSQL ومؤمّن بصلاحيات Row Level Security!", "success");
+        await this.refreshData();
+        this.initOrdersListener();
+      } else {
+        alert("تعذر الاتصال بـ Supabase بهذا الرابط والمفتاح. يرجى التأكد من صحة الرابط والـ anon key وتشغيل ملف supabase-schema.sql.");
+      }
+    } catch (err) {
+      alert("خطأ أثناء حفظ التكوين: " + err.message);
+    }
+  },
+
+  handleClearSupabaseConfig() {
+    if (confirm("هل تريد بالتأكيد إلغاء الربط مع Supabase والرجوع للتخزين المحلي فقط؟")) {
+      window.SupabaseConfig.clearConfig();
+      if (window.SupabaseDB) {
+        SupabaseDB.isInitialized = false;
+        SupabaseDB.client = null;
+      }
+      this.updateSupabaseStatusUI();
+      this.closeSupabaseModal();
+      this.showToast("تمت الاستعادة", "تم إلغاء الربط مع Supabase والرجوع للوضع المحلي (Local Mode).", "info");
+    }
   },
 
   async initCloud() {
@@ -116,21 +218,54 @@ const AdminPage = {
     }
   },
 
-  refreshData() {
-    this.currentProducts = Storage.getProducts();
+  async refreshData() {
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      try {
+        this.currentProducts = await SupabaseDB.fetchPerfumes();
+      } catch (e) {
+        this.currentProducts = Storage.getProducts();
+      }
+    } else {
+      this.currentProducts = Storage.getProducts();
+    }
     this.renderStats();
     this.renderProductsList();
   },
 
   bindEvents() {
+    // --- Login Tabs Toggle ---
+    const tabSupabase = document.getElementById("tabLoginSupabase");
+    const tabPasscode = document.getElementById("tabLoginPasscode");
+    const emailGroup = document.getElementById("loginEmailGroup");
+    const passLabel = document.getElementById("loginPasswordLabel");
+    const emailInput = document.getElementById("adminEmailInput");
+    const passInput = document.getElementById("adminPasswordInput");
+
+    tabSupabase?.addEventListener("click", () => {
+      tabSupabase.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-gold-400 bg-obsidian-900 border border-gold-500/30 flex items-center justify-center gap-1.5";
+      tabPasscode.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-neutral-400 hover:text-cream-100 flex items-center justify-center gap-1.5";
+      if (emailGroup) emailGroup.classList.remove("hidden");
+      if (passLabel) passLabel.textContent = "كلمة مرور المشرف (Supabase Auth)";
+      if (emailInput) emailInput.focus();
+    });
+
+    tabPasscode?.addEventListener("click", () => {
+      tabPasscode.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-gold-400 bg-obsidian-900 border border-gold-500/30 flex items-center justify-center gap-1.5";
+      tabSupabase.className = "flex-1 py-2 text-xs font-bold rounded-xl transition text-neutral-400 hover:text-cream-100 flex items-center justify-center gap-1.5";
+      if (emailGroup) emailGroup.classList.add("hidden");
+      if (emailInput) emailInput.value = "";
+      if (passLabel) passLabel.textContent = "رمز المرور السريع للإدارة";
+      if (passInput) passInput.focus();
+    });
+
     // --- Login Form ---
     const loginForm = document.getElementById("adminLoginForm");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
-        const input = document.getElementById("adminPasswordInput");
-        const pass = input ? input.value : "";
-        this.handleLogin(pass);
+        const email = emailInput ? emailInput.value.trim() : "";
+        const pass = passInput ? passInput.value : "";
+        this.handleLogin({ email, password: pass });
       });
     }
 
@@ -269,6 +404,32 @@ const AdminPage = {
 
     document.getElementById("adminTabPaymentBtn")?.addEventListener("click", () => {
       this.switchTab("payment");
+    });
+
+    // --- Supabase Modal Events ---
+    document.getElementById("btnOpenSupabaseModal")?.addEventListener("click", () => {
+      this.openSupabaseModal();
+    });
+
+    document.getElementById("btnOpenSupabaseModalFromLogin")?.addEventListener("click", () => {
+      this.openSupabaseModal();
+    });
+
+    document.getElementById("btnCloseSupabaseModal")?.addEventListener("click", () => {
+      this.closeSupabaseModal();
+    });
+
+    document.getElementById("btnCancelSupabaseModal")?.addEventListener("click", () => {
+      this.closeSupabaseModal();
+    });
+
+    document.getElementById("supabaseConfigForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await this.handleSaveSupabaseConfig();
+    });
+
+    document.getElementById("btnClearSupabaseConfig")?.addEventListener("click", () => {
+      this.handleClearSupabaseConfig();
     });
 
     // --- Cloud Modal Events ---
@@ -520,7 +681,15 @@ const AdminPage = {
 
   // --- Live Orders Management ---
   initOrdersListener() {
-    if (window.CloudDB) {
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      SupabaseDB.subscribeToOrders((orders) => {
+        this.orders = orders || [];
+        this.updateOrdersBadge();
+        if (this.currentTab === "orders") {
+          this.renderOrders();
+        }
+      });
+    } else if (window.CloudDB) {
       CloudDB.listenToOrders((orders) => {
         this.orders = orders || [];
         this.updateOrdersBadge();
@@ -532,7 +701,9 @@ const AdminPage = {
   },
 
   async loadOrders() {
-    if (window.CloudDB) {
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      this.orders = await SupabaseDB.fetchOrders();
+    } else if (window.CloudDB) {
       this.orders = await CloudDB.fetchOrders();
     } else {
       this.orders = Storage.getOrders();
@@ -667,7 +838,9 @@ const AdminPage = {
         const orderId = sel.getAttribute("data-order-id");
         const newStatus = e.target.value;
         sel.disabled = true;
-        if (window.CloudDB) {
+        if (window.SupabaseDB && SupabaseDB.isReady()) {
+          await SupabaseDB.updateOrderStatus(orderId, newStatus);
+        } else if (window.CloudDB) {
           await CloudDB.updateOrderStatus(orderId, newStatus);
         }
         this.showToast("تم تحديث حالة الطلب", `تم تغيير حالة الطلب #${orderId} بنجاح.`, "success");
@@ -731,6 +904,9 @@ const AdminPage = {
     };
 
     Storage.saveSettings(newSettings);
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      SupabaseDB.saveSettings(newSettings).catch(e => console.warn("Supabase settings sync:", e));
+    }
     if (window.CloudDB && CloudDB.isCloudActive()) {
       CloudDB.saveSettings(newSettings).catch(e => console.warn("Cloud settings sync:", e));
     }
@@ -749,10 +925,60 @@ const AdminPage = {
     window.open(`https://wa.me/${cleanNumber}?text=${testMsg}`, "_blank");
   },
 
-  handleLogin(password) {
-    const correctPassword = getAdminPassword();
-    const errBox = document.getElementById("loginErrorMessage");
+  async handleLogin(credentials) {
+    let email = "";
+    let password = "";
+    if (typeof credentials === "string") {
+      password = credentials;
+    } else if (credentials) {
+      email = credentials.email || "";
+      password = credentials.password || "";
+    }
 
+    const errBox = document.getElementById("loginErrorMessage");
+    const errText = document.getElementById("loginErrorText");
+    const submitBtn = document.getElementById("adminLoginSubmitBtn");
+
+    // 1. If email is provided, attempt Supabase Auth login
+    if (email) {
+      if (!window.SupabaseDB || !SupabaseDB.isReady()) {
+        if (errBox) {
+          if (errText) errText.textContent = "خدمة Supabase غير مهيأة بعد. يرجى إعداد المفاتيح أولاً بالضغط على 'تهيئة Supabase' أو الدخول بالرمز السريع.";
+          errBox.classList.remove("hidden");
+        }
+        return;
+      }
+
+      try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i><span>جاري التحقق عبر السحابة...</span>';
+          if (window.lucide) lucide.createIcons({ root: submitBtn });
+        }
+
+        await SupabaseDB.login(email, password);
+        if (errBox) errBox.classList.add("hidden");
+        setAuthenticated(true);
+        this.checkAuth();
+        this.showToast("تم الدخول بنجاح ⚡", `مرحباً بك في لوحة الإدارة: ${email}`, "success");
+      } catch (err) {
+        console.error("Supabase login error:", err);
+        if (errBox) {
+          if (errText) errText.textContent = err.message || "فشل تسجيل الدخول عبر Supabase. تأكد من صحة البريد وكلمة المرور.";
+          errBox.classList.remove("hidden");
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i><span>تسجيل الدخول للوحة التحكم</span>';
+          if (window.lucide) lucide.createIcons({ root: submitBtn });
+        }
+      }
+      return;
+    }
+
+    // 2. Fallback to Master Passcode
+    const correctPassword = getAdminPassword();
     if (password === correctPassword) {
       if (errBox) errBox.classList.add("hidden");
       setAuthenticated(true);
@@ -760,13 +986,14 @@ const AdminPage = {
       this.showToast("تم الدخول بنجاح", "مرحباً بك في لوحة إدارة بيت المسك", "success");
     } else {
       if (errBox) {
+        if (errText) errText.textContent = "رمز المرور غير صحيح. يرجى التحقق والمحاولة مجدداً.";
         errBox.classList.remove("hidden");
-        const input = document.getElementById("adminPasswordInput");
-        if (input) {
-          input.classList.add("border-red-500");
-          input.focus();
-          setTimeout(() => input.classList.remove("border-red-500"), 2000);
-        }
+      }
+      const input = document.getElementById("adminPasswordInput");
+      if (input) {
+        input.classList.add("border-red-500");
+        input.focus();
+        setTimeout(() => input.classList.remove("border-red-500"), 2000);
       }
     }
   },
@@ -945,6 +1172,9 @@ const AdminPage = {
         const prod = Storage.getProductById(id);
         if (confirm(`هل أنت متأكد من حذف عطر "${prod?.name}" نهائياً من المتجر؟`)) {
           Storage.deleteProduct(id);
+          if (window.SupabaseDB && SupabaseDB.isReady()) {
+            SupabaseDB.deletePerfume(id).catch(e => console.warn("Supabase delete prod:", e));
+          }
           if (window.CloudDB && CloudDB.isCloudActive()) {
             CloudDB.deleteProduct(id).catch(e => console.warn("Cloud delete prod:", e));
           }
@@ -1139,6 +1369,9 @@ const AdminPage = {
     };
 
     Storage.saveProduct(productObj);
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      SupabaseDB.savePerfume(productObj).catch(e => console.warn("Supabase save prod:", e));
+    }
     if (window.CloudDB && CloudDB.isCloudActive()) {
       CloudDB.saveProduct(productObj).catch(e => console.warn("Cloud save prod:", e));
     }

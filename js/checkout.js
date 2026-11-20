@@ -201,12 +201,6 @@ const Checkout = {
         <span class="text-gold-400 text-lg flex-shrink-0">💵</span>
         <span>الدفع نقدًا عند استلام طلبك الملكي وتوصيل القارورة لباب منزلك من المندوب.</span>
       `;
-    } else if (method === "apple_pay") {
-      box.className = "mt-3 p-3.5 rounded-xl bg-neutral-900 border border-neutral-700 text-xs text-neutral-300 flex items-center gap-2.5 text-right";
-      box.innerHTML = `
-        <span class="text-cream-100 text-lg flex-shrink-0"></span>
-        <span>دفع فوري وآمن ومشفر عبر محفظة Apple Pay الرقمية.</span>
-      `;
     }
 
     if (window.lucide) lucide.createIcons({ root: box });
@@ -289,6 +283,20 @@ const Checkout = {
     const notes = (notesInput?.value || "").trim();
     const paymentMethodValue = form.querySelector("input[name='paymentMethod']:checked")?.value || "cod";
 
+    // 1. Anti-Spam Bot Honeypot
+    const honey = document.getElementById("muskHoneypot")?.value;
+    if (honey) {
+      console.warn("Spam bot detected via honeypot field. Dropping submission.");
+      return;
+    }
+
+    // 2. Client Rate Limiting (Prevent Double Submission / Spamming)
+    const nowTime = Date.now();
+    if (this.lastOrderTime && (nowTime - this.lastOrderTime < 20000)) {
+      if (window.app) window.app.showToast("يرجى الانتظار", "تم استلام طلبكم بالفعل وجاري تجهيزه، يرجى الانتظار قليلاً.", "warning");
+      return;
+    }
+
     const highlightField = (inputEl, message) => {
       if (inputEl) {
         inputEl.classList.add("border-red-500", "focus:border-red-500", "ring-2", "ring-red-500/50");
@@ -301,16 +309,20 @@ const Checkout = {
       if (window.app) window.app.showToast("حقل مطلوب", message, "warning");
     };
 
-    if (!fullName) {
-      highlightField(fullNameInput, "يرجى كتابة اسم العميل الكريم لاستكمال الحجز.");
+    if (!fullName || fullName.length < 3) {
+      highlightField(fullNameInput, "يرجى كتابة اسم العميل الكريم بالكامل (الاسم الثنائي على الأقل).");
       return;
     }
-    if (!phone) {
-      highlightField(phoneInput, "يرجى إدخال رقم الهاتف أو الواتساب للتواصل وتأكيد الشحن.");
+
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
+    const egyptianPhoneRegex = /^(?:\+20|0020|0)?1[0125][0-9]{8}$/;
+    if (!cleanPhone || !egyptianPhoneRegex.test(cleanPhone)) {
+      highlightField(phoneInput, "يرجى كتابة رقم هاتف مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015 لتأكيد الشحن.");
       return;
     }
-    if (!address) {
-      highlightField(addressInput, "يرجى كتابة عنوان التوصيل بالتفصيل.");
+
+    if (!address || address.length < 8) {
+      highlightField(addressInput, "يرجى كتابة عنوان التوصيل بالتفصيل (المحافظة، المنطقة، اسم الشارع، ورقم العقار).");
       return;
     }
 
@@ -321,16 +333,22 @@ const Checkout = {
       return;
     }
 
+    // Validate quantities are positive numbers
+    const invalidItem = cart.find(i => !i.quantity || i.quantity <= 0);
+    if (invalidItem) {
+      if (window.app) window.app.showToast("خطأ", "يوجد عنصر بكمية غير صحيحة في الحقيبة.", "error");
+      return;
+    }
+
     const totals = Storage.calculateTotals();
-    const uniqueNumber = Math.floor(1000 + Math.random() * 9000);
+    const uniqueNumber = Math.floor(1500 + Math.random() * 8500);
     const orderId = `MUSK-2026-${uniqueNumber}`;
     const now = new Date();
 
     const paymentLabels = {
       cod: "عند الاستلام (نقداً)",
       vodafone_cash: "فودافون كاش (Vodafone Cash)",
-      instapay: "إنستا باي (InstaPay)",
-      apple_pay: "Apple Pay"
+      instapay: "إنستا باي (InstaPay)"
     };
 
     const paymentLabel = paymentLabels[paymentMethodValue] || "عند الاستلام (نقداً)";
@@ -341,7 +359,7 @@ const Checkout = {
       formattedDate: now.toLocaleDateString("ar-EG", { month: "long", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }),
       customer: {
         fullName,
-        phone,
+        phone: cleanPhone,
         address,
         notes
       },
@@ -357,16 +375,32 @@ const Checkout = {
       submitBtn.disabled = true;
       submitBtn.innerHTML = `
         <span class="inline-block animate-spin ml-2">⚜️</span>
-        جاري تأكيد الحجز في بيت المسك...
+        جاري قيد وتأكيد الحجز الملكي...
       `;
     }
 
     setTimeout(async () => {
       try {
-        Storage.saveOrder(orderData);
-        if (window.CloudDB) {
+        // 1. Save in Supabase first (Database sequence number & Inventory deduction)
+        if (window.SupabaseDB && SupabaseDB.isReady()) {
+          try {
+            const dbRes = await SupabaseDB.createOrder(orderData);
+            if (dbRes && dbRes.orderId) {
+              orderData.orderId = dbRes.orderId;
+            }
+          } catch (supErr) {
+            console.warn("Supabase createOrder fallback note:", supErr);
+          }
+        }
+
+        // 2. Fallback / Parallel CloudDB Firebase sync
+        if (window.CloudDB && CloudDB.isCloudActive()) {
           CloudDB.submitOrder(orderData).catch(e => console.warn("Cloud order submission sync:", e));
         }
+
+        // 3. Save to local storage cache
+        Storage.saveOrder(orderData);
+        this.lastOrderTime = Date.now();
         this.currentOrder = orderData;
         Storage.clearCart();
 

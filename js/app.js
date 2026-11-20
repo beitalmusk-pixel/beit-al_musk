@@ -26,6 +26,24 @@ class LuxuryApp {
   }
 
   async init() {
+    // 1. Initialize Supabase PostgreSQL & Auth if configured
+    if (window.SupabaseDB) {
+      try {
+        const supabaseReady = await SupabaseDB.init();
+        if (supabaseReady) {
+          await SupabaseDB.fetchSettings();
+          await SupabaseDB.fetchPerfumes();
+          SupabaseDB.subscribeToPerfumes((updatedProds) => {
+            this.renderCollectionGrid();
+            this.renderMobileBottleCarousel();
+          });
+        }
+      } catch (e) {
+        console.warn("SupabaseDB init note:", e);
+      }
+    }
+
+    // 2. Initialize Firebase as secondary cloud layer
     if (window.CloudDB) {
       try {
         const cloudReady = await CloudDB.init();
@@ -813,39 +831,56 @@ class LuxuryApp {
     });
   }
 
-  updateSpotlightCalculations() {
-    if (!this.currentSpotlightProduct) return;
-    const unitPrice = this.currentSpotlightProduct.sizes[this.spotlightSelectedSize]?.price || 250;
-    const total = unitPrice * this.spotlightQuantity;
+  calculateProductPrice(product, sizeKey = "50ml", quantity = 1) {
+    if (!product || !product.sizes) {
+      return { unitPrice: 245, total: 245, hasDiscount: false, discountedUnitPrice: 245, discountedTotal: 245 };
+    }
+
+    const sizeObj = product.sizes[sizeKey] || product.sizes["50ml"] || Object.values(product.sizes)[0];
+    const unitPrice = sizeObj ? sizeObj.price : 245;
+    const total = unitPrice * Math.max(1, quantity);
 
     const settings = Storage.getSettings();
-    const hasDiscount = settings.globalDiscountEnabled && settings.globalDiscountPercent > 0;
+    const hasDiscount = Boolean(settings.globalDiscountEnabled && settings.globalDiscountPercent > 0);
     const discountFactor = hasDiscount ? (1 - settings.globalDiscountPercent / 100) : 1;
     const discountedUnitPrice = hasDiscount ? Math.round(unitPrice * discountFactor) : unitPrice;
     const discountedTotal = hasDiscount ? Math.round(total * discountFactor) : total;
+
+    return {
+      unitPrice,
+      total,
+      hasDiscount,
+      discountedUnitPrice,
+      discountedTotal
+    };
+  },
+
+  updateSpotlightCalculations() {
+    if (!this.currentSpotlightProduct) return;
+    const calc = this.calculateProductPrice(this.currentSpotlightProduct, this.spotlightSelectedSize, this.spotlightQuantity);
 
     const unitPriceEl = document.getElementById("spotlightUnitPrice");
     const totalEl = document.getElementById("spotlightTotalPrice");
     const customQtyInput = document.getElementById("spotlightCustomQtyInput");
 
     if (unitPriceEl) {
-      unitPriceEl.innerHTML = hasDiscount
-        ? `<span class="line-through text-xs text-neutral-500 ml-1.5 font-normal">${unitPrice} ج.م</span><span class="text-emerald-400 font-bold">${discountedUnitPrice} ج.م</span>`
-        : `${unitPrice} ج.م`;
+      unitPriceEl.innerHTML = calc.hasDiscount
+        ? `<span class="line-through text-xs text-neutral-500 ml-1.5 font-normal">${calc.unitPrice} ج.م</span><span class="text-emerald-400 font-bold">${calc.discountedUnitPrice} ج.م</span>`
+        : `${calc.unitPrice} ج.م`;
     }
     if (totalEl) {
-      totalEl.innerHTML = hasDiscount
-        ? `<span class="line-through text-xs text-neutral-500 ml-1.5 font-normal">${total.toLocaleString()} ج.م</span><span class="text-emerald-400 font-bold">${discountedTotal.toLocaleString()} ج.م</span>`
-        : `${total.toLocaleString()} ج.م`;
+      totalEl.innerHTML = calc.hasDiscount
+        ? `<span class="line-through text-xs text-neutral-500 ml-1.5 font-normal">${calc.total.toLocaleString()} ج.م</span><span class="text-emerald-400 font-bold">${calc.discountedTotal.toLocaleString()} ج.م</span>`
+        : `${calc.total.toLocaleString()} ج.م`;
     }
     if (customQtyInput) customQtyInput.value = this.spotlightQuantity;
 
     const stickyPriceEl = document.getElementById("stickyBarPrice");
     const stickySizeEl = document.getElementById("stickyBarSize");
     if (stickyPriceEl) {
-      stickyPriceEl.innerHTML = hasDiscount
-        ? `<span class="line-through text-[10px] text-neutral-500 ml-1 font-normal">${unitPrice} ج.م</span><span class="text-emerald-400 font-bold">${discountedUnitPrice} ج.م</span>`
-        : `${unitPrice} ج.م`;
+      stickyPriceEl.innerHTML = calc.hasDiscount
+        ? `<span class="line-through text-[10px] text-neutral-500 ml-1 font-normal">${calc.unitPrice} ج.م</span><span class="text-emerald-400 font-bold">${calc.discountedUnitPrice} ج.م</span>`
+        : `${calc.unitPrice} ج.م`;
     }
     if (stickySizeEl) stickySizeEl.textContent = this.spotlightSelectedSize;
 
@@ -1009,7 +1044,7 @@ class LuxuryApp {
           <!-- Authentic Luxury Photography Visual -->
           <div class="card-visual-wrapper cursor-pointer py-2 flex items-center justify-center relative overflow-hidden transition-transform duration-500 group-hover:scale-105" data-view-product="${prod.id}">
             <div class="absolute inset-0 bg-radial-glow opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" style="background: radial-gradient(circle, ${prod.visual?.spotlight || 'rgba(212,175,55,0.2)'} 0%, transparent 70%);"></div>
-            <img src="${prod.image || 'assets/logo.jpg'}" alt="${prod.name}" class="max-h-[220px] w-auto object-contain rounded-xl shadow-lg border border-gold-500/20 group-hover:border-gold-500/50 transition">
+            <img src="${prod.image || 'assets/logo.jpg'}" alt="${prod.name}" loading="lazy" decoding="async" class="max-h-[220px] w-auto object-contain rounded-xl shadow-lg border border-gold-500/20 group-hover:border-gold-500/50 transition">
           </div>
 
           <!-- Product Info -->
@@ -1152,7 +1187,7 @@ class LuxuryApp {
       if (product.image) {
         artContainer.innerHTML = `
           <div class="relative w-full flex items-center justify-center p-3">
-            <img src="${product.image}" alt="${product.name}" class="max-h-[340px] w-auto object-contain rounded-2xl shadow-2xl border border-gold-500/30">
+            <img src="${product.image}" alt="${product.name}" loading="lazy" decoding="async" class="max-h-[340px] w-auto object-contain rounded-2xl shadow-2xl border border-gold-500/30">
           </div>
         `;
       } else {
@@ -1232,11 +1267,21 @@ class LuxuryApp {
 
   updateModalCalculations() {
     if (!this.modalProduct) return;
-    const unitPrice = this.modalProduct.sizes[this.modalSelectedSize]?.price || 250;
-    const total = unitPrice * this.modalQuantity;
+    const calc = this.calculateProductPrice(this.modalProduct, this.modalSelectedSize, this.modalQuantity);
 
-    document.getElementById("modalUnitPrice") && (document.getElementById("modalUnitPrice").textContent = `${unitPrice} ج.م`);
-    document.getElementById("modalTotalPrice") && (document.getElementById("modalTotalPrice").textContent = `${total.toLocaleString()} ج.م`);
+    const unitPriceEl = document.getElementById("modalUnitPrice");
+    const totalEl = document.getElementById("modalTotalPrice");
+
+    if (unitPriceEl) {
+      unitPriceEl.innerHTML = calc.hasDiscount
+        ? `<span class="line-through text-xs text-neutral-500 ml-1.5 font-normal">${calc.unitPrice} ج.م</span><span class="text-emerald-400 font-bold">${calc.discountedUnitPrice} ج.م</span>`
+        : `${calc.unitPrice} ج.م`;
+    }
+    if (totalEl) {
+      totalEl.innerHTML = calc.hasDiscount
+        ? `<span class="line-through text-xs text-neutral-500 ml-1.5 font-normal">${calc.total.toLocaleString()} ج.م</span><span class="text-emerald-400 font-bold">${calc.discountedTotal.toLocaleString()} ج.م</span>`
+        : `${calc.total.toLocaleString()} ج.م`;
+    }
     document.getElementById("modalCustomQtyInput") && (document.getElementById("modalCustomQtyInput").value = this.modalQuantity);
   }
 

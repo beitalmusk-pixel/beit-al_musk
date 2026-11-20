@@ -81,9 +81,35 @@
         </p>
       </div>
 
-      <form id="adminLoginForm" class="space-y-5">
+      <!-- تبويب نمط تسجيل الدخول -->
+      <div class="flex items-center justify-center p-1 bg-obsidian-950 border border-neutral-800 rounded-2xl mb-6">
+        <button type="button" id="tabLoginSupabase" class="flex-1 py-2 text-xs font-bold rounded-xl transition text-gold-400 bg-obsidian-900 border border-gold-500/30 flex items-center justify-center gap-1.5">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+          <span>حساب السحابة (Supabase)</span>
+        </button>
+        <button type="button" id="tabLoginPasscode" class="flex-1 py-2 text-xs font-bold rounded-xl transition text-neutral-400 hover:text-cream-100 flex items-center justify-center gap-1.5">
+          <i data-lucide="key" class="w-3.5 h-3.5"></i>
+          <span>الرمز السريع (Passcode)</span>
+        </button>
+      </div>
+
+      <form id="adminLoginForm" class="space-y-4">
+        <!-- حقل الإيميل (لسحابة Supabase) -->
+        <div id="loginEmailGroup">
+          <label class="block text-xs text-neutral-300 mb-1.5 font-medium">البريد الإلكتروني للأدمن (Supabase Auth)</label>
+          <input 
+            type="email" 
+            id="adminEmailInput" 
+            placeholder="admin@beitalmusk.com" 
+            class="w-full px-4 py-3 rounded-xl bg-obsidian-950 border border-neutral-700 text-sm text-cream-100 placeholder-neutral-600 focus:outline-none focus:border-gold-500 transition font-mono text-left"
+            dir="ltr"
+            autocomplete="email"
+          >
+        </div>
+
+        <!-- حقل كلمة المرور / الرمز السري -->
         <div>
-          <label class="block text-xs text-neutral-300 mb-1.5 font-medium">رمز المرور السري للإدارة</label>
+          <label id="loginPasswordLabel" class="block text-xs text-neutral-300 mb-1.5 font-medium">كلمة مرور المشرف</label>
           <div class="relative">
             <input 
               type="password" 
@@ -101,16 +127,20 @@
 
         <div id="loginErrorMessage" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
           <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
-          <span>رمز المرور غير صحيح. يرجى التحقق والمحاولة مجدداً.</span>
+          <span id="loginErrorText">رمز المرور غير صحيح. يرجى التحقق والمحاولة مجدداً.</span>
         </div>
 
-        <button type="submit" class="w-full gold-gradient-btn py-3 px-4 rounded-xl text-obsidian-950 text-xs font-bold tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.01] active:scale-[0.99]">
+        <button type="submit" id="adminLoginSubmitBtn" class="w-full gold-gradient-btn py-3 px-4 rounded-xl text-obsidian-950 text-xs font-bold tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 hover:scale-[1.01] active:scale-[0.99]">
           <i data-lucide="lock" class="w-4 h-4"></i>
           <span>تسجيل الدخول للوحة التحكم</span>
         </button>
 
-        <div class="text-center pt-2">
-          <a href="index.html" class="text-xs text-neutral-500 hover:text-gold-400 transition inline-flex items-center gap-1 font-medium">
+        <div class="flex items-center justify-between pt-2 text-xs">
+          <button type="button" id="btnOpenSupabaseModalFromLogin" class="text-emerald-400 hover:text-emerald-300 transition inline-flex items-center gap-1 font-mono text-[11px]">
+            <i data-lucide="database" class="w-3.5 h-3.5"></i>
+            <span>تهيئة Supabase</span>
+          </button>
+          <a href="index.html" class="text-neutral-500 hover:text-gold-400 transition inline-flex items-center gap-1 font-medium">
             <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             <span>العودة إلى متجر بيت المسك</span>
           </a>
@@ -147,6 +177,11 @@
           <button id="btnAddNewPerfume" class="gold-gradient-btn px-4 py-2 rounded-full text-obsidian-950 text-xs font-bold tracking-wide transition flex items-center gap-1.5 shadow-lg shadow-gold-500/20 hover:scale-105 active:scale-95">
             <i data-lucide="plus-circle" class="w-4 h-4"></i>
             <span>إضافة عطر جديد</span>
+          </button>
+
+          <button id="btnOpenSupabaseModal" class="px-3.5 py-2 rounded-full border border-emerald-500/30 hover:border-emerald-500/60 bg-emerald-500/10 text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1.5" title="قاعدة بيانات Supabase (PostgreSQL & RLS Auth)">
+            <i data-lucide="database" class="w-3.5 h-3.5"></i>
+            <span id="supabaseStatusText">سحابة Supabase</span>
           </button>
 
           <button id="btnOpenCloudModal" class="px-3.5 py-2 rounded-full border border-sky-500/30 hover:border-sky-500/60 bg-sky-500/10 text-xs text-sky-400 hover:text-sky-300 transition flex items-center gap-1.5" title="الربط السحابي مع Google Firebase">
@@ -573,6 +608,80 @@
     </div>
   </div>
 
+  <!-- =========================================================================
+       2.6 نافذة إعدادات الربط بقاعدة بيانات Supabase (PostgreSQL & RLS Auth)
+       ========================================================================= -->
+  <div id="supabaseSyncModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-4 sm:p-6 flex items-center justify-center overflow-y-auto" dir="rtl">
+    <div class="modal-dialog bg-obsidian-950 border border-emerald-500/30 rounded-2xl w-full max-w-xl shadow-2xl p-6 sm:p-8 text-right relative my-6">
+      
+      <div class="flex justify-between items-center pb-4 border-b border-neutral-800 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg">
+            ⚡
+          </div>
+          <div>
+            <h3 class="font-amiri text-xl font-bold text-cream-100">إعدادات قاعدة بيانات Supabase (PostgreSQL & Auth)</h3>
+            <p class="text-[11px] text-emerald-400/80 font-mono">SUPABASE V2 • ROW LEVEL SECURITY • SECURE ORDERS</p>
+          </div>
+        </div>
+        <button type="button" id="btnCloseSupabaseModal" class="text-neutral-400 hover:text-cream-100 p-1.5 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Supabase Status Banner -->
+      <div id="supabaseStatusBanner" class="p-4 rounded-xl border mb-6 text-xs flex items-center gap-3 bg-neutral-900/60 border-neutral-800">
+        <span class="text-2xl" id="supabaseStatusIcon">🟡</span>
+        <div class="flex-1">
+          <h5 class="font-bold text-cream-100" id="supabaseStatusTitle">حالة الاتصال: محلي (Local Mode)</h5>
+          <p class="text-neutral-400 text-[11px] mt-0.5" id="supabaseStatusDesc">أدخل رابط مشروع Supabase والمفتاح العام (anon key) لربط قاعدة البيانات PostgreSQL وتفعيل صلاحيات RLS.</p>
+        </div>
+      </div>
+
+      <!-- Quick Setup Guide Accordion -->
+      <details class="mb-6 p-4 rounded-xl bg-obsidian-900 border border-neutral-800 text-xs text-neutral-300">
+        <summary class="font-bold text-emerald-400 cursor-pointer list-none flex justify-between items-center">
+          <span>📖 خطوات تجهيز Supabase في دقيقتين:</span>
+          <span class="text-neutral-500 text-[10px]">اضغط للعرض</span>
+        </summary>
+        <div class="space-y-2 mt-3 pt-3 border-t border-neutral-800 text-[11px] leading-relaxed font-sans text-neutral-400">
+          <p>1. افتح <a href="https://supabase.com" target="_blank" class="text-emerald-400 underline font-mono">supabase.com</a> وأنشئ مشروعاً مجانياً جديداً.</p>
+          <p>2. اذهب إلى <strong>SQL Editor</strong> في لوحة Supabase، والصق كود ملف <code>supabase-schema.sql</code> واضغط <strong>Run</strong> لإنشاء الجداول والدوال وصلاحيات RLS.</p>
+          <p>3. اذهب إلى <strong>Project Settings ⚙️ > API</strong> وانسخ <code>Project URL</code> و <code>anon public key</code> وضعهما في الحقول بالأسفل.</p>
+          <p>4. اذهب إلى <strong>Authentication > Users</strong> وأضف بريدك الإلكتروني وكلمة المرور لتسجيل الدخول كأدمن معتمد.</p>
+        </div>
+      </details>
+
+      <form id="supabaseConfigForm" class="space-y-4 text-xs">
+        <div>
+          <label class="block text-neutral-300 font-medium mb-1">Supabase Project URL *</label>
+          <input type="url" id="supabaseUrlInput" required placeholder="https://xxxxxxxxxxxx.supabase.co" class="w-full px-3.5 py-2.5 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left" dir="ltr">
+        </div>
+
+        <div>
+          <label class="block text-neutral-300 font-medium mb-1">Supabase Anon Public API Key *</label>
+          <textarea id="supabaseAnonKeyInput" required rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full px-3.5 py-2 rounded-xl bg-obsidian-900 border border-neutral-700 text-cream-100 font-mono text-left leading-tight text-[11px]" dir="ltr"></textarea>
+        </div>
+
+        <div class="pt-4 flex flex-col sm:flex-row justify-between gap-3 border-t border-neutral-800">
+          <button type="button" id="btnClearSupabaseConfig" class="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold transition">
+            مسح الإعدادات والرجوع للوضع المحلي
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btnCancelSupabaseModal" class="px-4 py-2.5 rounded-xl border border-neutral-700 text-neutral-300 hover:text-cream-100 text-xs">
+              إغلاق
+            </button>
+            <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>حفظ واختبار الاتصال السحابي</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
     </main>
 
   </div>
@@ -859,6 +968,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+  <!-- Supabase v2 JS Client (PostgreSQL & RLS Auth) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/supabase-client.js"></script>
 
   <!-- Cloud Sync Layer -->
   <script src="js/firebase-config.js"></script>
