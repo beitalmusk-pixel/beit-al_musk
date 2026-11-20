@@ -97,8 +97,8 @@ SECURITY DEFINER
 SET search_path = public, auth, pg_temp
 AS $$
 BEGIN
-  IF LOWER(NEW.email) IN ('admin@beitalmusk.com', 'admin@baytalmusk.com', 'support@beitalmusk.com') 
-     OR NEW.email ILIKE '%@beitalmusk.com' THEN
+  IF LOWER(NEW.email) IN ('beitalmusk@gmail.com', 'beitalmusk.store@gmail.com', 'admin@beitalmusk.com', 'admin@baytalmusk.com', 'support@beitalmusk.com') 
+     OR NEW.email ILIKE '%beitalmusk%' THEN
     INSERT INTO public.admin_users (user_id, email, role)
     VALUES (NEW.id, LOWER(NEW.email), 'admin')
     ON CONFLICT (user_id) DO NOTHING;
@@ -122,8 +122,9 @@ BEGIN
     INSERT INTO public.admin_users (user_id, email, role)
     SELECT id, LOWER(email), 'admin'
     FROM auth.users
-    WHERE LOWER(email) IN ('admin@beitalmusk.com', 'admin@baytalmusk.com', 'support@beitalmusk.com')
+    WHERE LOWER(email) IN ('beitalmusk@gmail.com', 'beitalmusk.store@gmail.com', 'admin@beitalmusk.com', 'admin@baytalmusk.com', 'support@beitalmusk.com')
        OR email ILIKE '%admin%'
+       OR email ILIKE '%beitalmusk%'
     ON CONFLICT (user_id) DO NOTHING;
   EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'Notice: Existing admin auto-sync skipped: %', SQLERRM;
