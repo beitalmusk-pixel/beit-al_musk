@@ -1800,7 +1800,6 @@ const AdminPage = {
 
               <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
                 ${podiumBadge}
-                ${stockBadge}
               </div>
             </div>
 
