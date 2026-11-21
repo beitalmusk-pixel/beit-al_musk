@@ -331,6 +331,7 @@ const AdminPage = {
       if (loginGate) loginGate.classList.add("hidden");
       if (dashboard) dashboard.classList.remove("hidden");
       this.refreshData();
+      await this.loadOrders();
       this.initOrdersListener();
       this.loadDiscountsSettings();
       this.loadCoupons();
@@ -357,6 +358,7 @@ const AdminPage = {
     }
     this.renderStats();
     this.renderProductsList();
+    this.renderInventorySection();
   },
 
   bindEvents() {
@@ -531,9 +533,13 @@ const AdminPage = {
       document.getElementById(id)?.addEventListener("input", () => this.updateLivePreview());
     });
 
-    // --- Tab Switching (Products vs Orders vs Payment) ---
+    // --- Tab Switching (Products vs Inventory vs Orders vs Payment) ---
     document.getElementById("adminTabProductsBtn")?.addEventListener("click", () => {
       this.switchTab("products");
+    });
+
+    document.getElementById("adminTabInventoryBtn")?.addEventListener("click", () => {
+      this.switchTab("inventory");
     });
 
     document.getElementById("adminTabOrdersBtn")?.addEventListener("click", () => {
@@ -542,6 +548,27 @@ const AdminPage = {
 
     document.getElementById("adminTabPaymentBtn")?.addEventListener("click", () => {
       this.switchTab("payment");
+    });
+
+    // --- Inventory Section Events ---
+    document.getElementById("btnRefreshInventory")?.addEventListener("click", async () => {
+      await this.refreshData();
+      this.showToast("تحديث المخزون 📊", "تم جلب وتحديث أحدث بيانات المخزون المركزي من السحابة بنجاح.", "info");
+    });
+
+    // --- Invoice Modal Events ---
+    document.getElementById("btnPrintInvoiceAction")?.addEventListener("click", () => {
+      this.printInvoice();
+    });
+
+    document.getElementById("btnCloseInvoiceModal")?.addEventListener("click", () => {
+      this.closeInvoiceModal();
+    });
+
+    document.getElementById("invoiceModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "invoiceModal") {
+        this.closeInvoiceModal();
+      }
     });
 
     // --- Tab Switching for Discounts & Offers Page ---
@@ -777,11 +804,13 @@ const AdminPage = {
     this.currentTab = isDiscounts ? "discounts" : tabName;
 
     const tabProdBtn = document.getElementById("adminTabProductsBtn");
+    const tabInventoryBtn = document.getElementById("adminTabInventoryBtn");
     const tabOrdersBtn = document.getElementById("adminTabOrdersBtn");
     const tabPayBtn = document.getElementById("adminTabPaymentBtn");
     const tabDiscountsBtn = document.getElementById("adminTabDiscountsBtn") || document.getElementById("adminTabCouponsBtn");
 
     const prodSection = document.getElementById("adminProductsSection");
+    const inventorySection = document.getElementById("adminInventorySection");
     const ordersSection = document.getElementById("adminOrdersSection");
     const paySection = document.getElementById("adminPaymentSection");
     const discountsSection = document.getElementById("adminDiscountsSection") || document.getElementById("adminCouponsSection");
@@ -790,16 +819,20 @@ const AdminPage = {
     const inactiveClass = "admin-nav-tab px-5 py-2.5 rounded-xl text-xs font-bold font-amiri transition flex items-center gap-2 border border-neutral-800 text-neutral-400 hover:text-cream-100 hover:border-gold-500/40 cursor-pointer";
 
     if (tabProdBtn) tabProdBtn.className = this.currentTab === "products" ? activeClass : inactiveClass;
+    if (tabInventoryBtn) tabInventoryBtn.className = this.currentTab === "inventory" ? activeClass : inactiveClass;
     if (tabOrdersBtn) tabOrdersBtn.className = this.currentTab === "orders" ? activeClass : inactiveClass;
     if (tabPayBtn) tabPayBtn.className = this.currentTab === "payment" ? activeClass : inactiveClass;
     if (tabDiscountsBtn) tabDiscountsBtn.className = this.currentTab === "discounts" ? activeClass : inactiveClass;
 
     if (prodSection) prodSection.classList.toggle("hidden", this.currentTab !== "products");
+    if (inventorySection) inventorySection.classList.toggle("hidden", this.currentTab !== "inventory");
     if (ordersSection) ordersSection.classList.toggle("hidden", this.currentTab !== "orders");
     if (paySection) paySection.classList.toggle("hidden", this.currentTab !== "payment");
     if (discountsSection) discountsSection.classList.toggle("hidden", this.currentTab !== "discounts");
 
     if (this.currentTab === "products") {
+      this.refreshData();
+    } else if (this.currentTab === "inventory") {
       this.refreshData();
     } else if (this.currentTab === "orders") {
       this.loadOrders();
@@ -876,6 +909,7 @@ const AdminPage = {
       SupabaseDB.subscribeToOrders((orders) => {
         this.orders = orders || [];
         this.updateOrdersBadge();
+        this.updateOrdersKPIs();
         if (this.currentTab === "orders") {
           this.renderOrders();
         }
@@ -884,6 +918,7 @@ const AdminPage = {
       CloudDB.listenToOrders((orders) => {
         this.orders = orders || [];
         this.updateOrdersBadge();
+        this.updateOrdersKPIs();
         if (this.currentTab === "orders") {
           this.renderOrders();
         }
@@ -900,19 +935,45 @@ const AdminPage = {
       this.orders = Storage.getOrders();
     }
     this.updateOrdersBadge();
+    this.updateOrdersKPIs();
     this.renderOrders();
   },
 
   updateOrdersBadge() {
     const badge = document.getElementById("adminOrdersBadge");
     if (!badge) return;
-    const newCount = this.orders.filter(o => o.status === "new" || !o.status).length;
+    const newCount = (this.orders || []).filter(o => o.status === "new" || !o.status).length;
     if (newCount > 0) {
       badge.textContent = newCount;
       badge.classList.remove("hidden");
     } else {
       badge.classList.add("hidden");
     }
+  },
+
+  updateOrdersKPIs() {
+    const orders = this.orders || [];
+    let totalSales = 0;
+    let totalCount = orders.length;
+    let pendingCount = 0;
+    let shippedCount = 0;
+
+    orders.forEach(o => {
+      totalSales += Number(o.totals?.grandTotal) || 0;
+      const st = o.status || 'new';
+      if (st === 'new' || st === 'processing') pendingCount++;
+      if (st === 'shipped') shippedCount++;
+    });
+
+    const elSales = document.getElementById("orderStatTotalSales");
+    const elCount = document.getElementById("orderStatTotalCount");
+    const elPending = document.getElementById("orderStatPendingCount");
+    const elShipped = document.getElementById("orderStatShippedCount");
+
+    if (elSales) elSales.textContent = `${totalSales.toLocaleString()} ج.م`;
+    if (elCount) elCount.textContent = totalCount;
+    if (elPending) elPending.textContent = pendingCount;
+    if (elShipped) elShipped.textContent = shippedCount;
   },
 
   renderOrders() {
@@ -942,7 +1003,7 @@ const AdminPage = {
         <div class="py-16 text-center text-neutral-400 bg-obsidian-900/40 rounded-2xl border border-neutral-800">
           <span class="text-4xl block mb-2">📦</span>
           <h4 class="font-amiri text-xl font-bold text-cream-100">لا توجد طلبات مطابقة</h4>
-          <p class="text-xs text-neutral-500 mt-1">أي طلب يجريه العملاء في المتجر سيظهر هنا في الوقت الفعلي.</p>
+          <p class="text-xs text-neutral-500 mt-1">أي طلب يجريه العملاء في المتجر سيظهر هنا في الوقت الفعلي ومسجل سحابياً.</p>
         </div>
       `;
       return;
@@ -968,12 +1029,23 @@ const AdminPage = {
       `).join('');
 
       const safeOrderId = escapeHtml(ord.orderId || '');
-      const safeDate = escapeHtml(ord.formattedDate || '');
+      const safeDate = escapeHtml(ord.formattedDate || (ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("ar-EG") : ''));
       const safeFullName = escapeHtml(ord.customer?.fullName || '-');
       const safePhone = escapeHtml(ord.customer?.phone || '-');
       const safeAddress = escapeHtml(ord.customer?.address || '-');
       const safeNotes = ord.customer?.notes ? escapeHtml(ord.customer.notes) : '';
       const safePaymentMethod = escapeHtml(ord.paymentMethod || '-');
+
+      // WhatsApp Customer Link
+      let cleanPhone = (ord.customer?.phone || "").replace(/[^\d+]/g, "");
+      if (cleanPhone.startsWith("01")) {
+        cleanPhone = "2" + cleanPhone;
+      } else if (cleanPhone.startsWith("+")) {
+        cleanPhone = cleanPhone.replace("+", "");
+      }
+      const itemsSummary = (ord.items || []).map(it => `${it.name} (${it.size}) × ${it.quantity}`).join("، ");
+      const waMsg = `مرحباً أستاذ/ة ${ord.customer?.fullName || ''}، معك إدارة متجر بيت المسك الملكي بخصوص طلبكم الكريم رقم #${ord.orderId}:\nالعطور: ${itemsSummary}\nالإجمالي: ${ord.totals?.grandTotal || 0} ج.م\nالعنوان: ${ord.customer?.address || ''}\nشكراً لاختياركم بيت المسك الملكي 👑`;
+      const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsg)}` : '#';
 
       html += `
         <div class="p-6 rounded-2xl bg-obsidian-900/80 border border-neutral-800 space-y-4 text-right transition hover:border-gold-500/30 shadow-lg">
@@ -989,7 +1061,7 @@ const AdminPage = {
             <!-- Change Status Dropdown -->
             <div class="flex items-center gap-2">
               <span class="text-[11px] text-neutral-400">تحديث الحالة:</span>
-              <select class="order-status-select bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 rounded-lg px-2.5 py-1 focus:border-gold-500" data-order-id="${safeOrderId}">
+              <select class="order-status-select bg-obsidian-950 border border-neutral-700 text-xs text-cream-100 rounded-lg px-2.5 py-1 focus:border-gold-500 cursor-pointer" data-order-id="${safeOrderId}">
                 <option value="new" ${curStatus === 'new' ? 'selected' : ''}>طلب جديد 🟢</option>
                 <option value="processing" ${curStatus === 'processing' ? 'selected' : ''}>قيد التجهيز 🟡</option>
                 <option value="shipped" ${curStatus === 'shipped' ? 'selected' : ''}>تم الشحن 🚚</option>
@@ -1002,7 +1074,7 @@ const AdminPage = {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
             <div class="space-y-1.5 p-4 rounded-xl bg-obsidian-950/70 border border-neutral-850">
               <h5 class="font-amiri font-bold text-gold-300 text-sm mb-1 flex items-center gap-1.5">
-                <span>👤</span> بيانات العميل
+                <span>👤</span> بيانات العميل والمستلم
               </h5>
               <p class="text-cream-100 font-bold text-sm">${safeFullName}</p>
               <p class="text-neutral-300 font-mono" dir="ltr">📞 <a href="tel:${safePhone}" class="hover:text-gold-400 underline">${safePhone}</a></p>
@@ -1013,7 +1085,7 @@ const AdminPage = {
             <div class="space-y-2 p-4 rounded-xl bg-obsidian-950/70 border border-neutral-850 flex flex-col justify-between">
               <div>
                 <h5 class="font-amiri font-bold text-gold-300 text-sm mb-1 flex items-center gap-1.5">
-                  <span>🛍️</span> العطور المطلوبة
+                  <span>🛍️</span> العطور والطلبيات
                 </h5>
                 <div class="space-y-1">
                   ${itemsList}
@@ -1021,10 +1093,38 @@ const AdminPage = {
               </div>
               <div class="pt-2 border-t border-neutral-800 flex justify-between items-center text-xs">
                 <span class="text-neutral-400">طريقة الدفع: <strong class="text-gold-400 font-medium">${safePaymentMethod}</strong></span>
-                <span class="font-mono text-base font-bold text-gold-400">${ord.totals?.grandTotal?.toLocaleString() || 0} ج.م</span>
+                <span class="font-mono text-base font-bold text-gold-400">${Number(ord.totals?.grandTotal || 0).toLocaleString()} ج.م</span>
               </div>
             </div>
           </div>
+
+          <!-- Bottom Action Buttons: WhatsApp Chat, Call, Print Invoice, Delete -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-800">
+            <div class="flex flex-wrap items-center gap-2">
+              ${cleanPhone ? `
+                <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                  <span>💬</span>
+                  <span>محادثة واتساب للطلب</span>
+                </a>
+              ` : ''}
+              <a href="tel:${safePhone}" class="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold transition flex items-center gap-1.5">
+                <span>📞</span>
+                <span>اتصال بالعميل</span>
+              </a>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" class="btn-open-invoice px-3.5 py-1.5 rounded-lg bg-gold-500/15 border border-gold-500/40 text-gold-300 hover:bg-gold-500 hover:text-obsidian-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm" data-order-id="${safeOrderId}">
+                <span>🧾</span>
+                <span>عرض الفاتورة الملكية</span>
+              </button>
+              <button type="button" class="btn-delete-order px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer" data-order-id="${safeOrderId}" title="حذف الطلب">
+                <span>🗑️</span>
+                <span>حذف</span>
+              </button>
+            </div>
+          </div>
+
         </div>
       `;
     });
@@ -1044,11 +1144,350 @@ const AdminPage = {
         }
         this.showToast("تم تحديث حالة الطلب", `تم تغيير حالة الطلب #${orderId} بنجاح.`, "success");
         sel.disabled = false;
-        this.loadOrders();
+        await this.loadOrders();
+      });
+    });
+
+    // Attach Open Invoice Listener
+    container.querySelectorAll(".btn-open-invoice").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const orderId = btn.getAttribute("data-order-id");
+        this.openInvoiceModal(orderId);
+      });
+    });
+
+    // Attach Delete Order Listener
+    container.querySelectorAll(".btn-delete-order").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const orderId = btn.getAttribute("data-order-id");
+        await this.deleteOrder(orderId);
       });
     });
 
     if (window.lucide) lucide.createIcons({ root: container });
+  },
+
+  openInvoiceModal(orderId) {
+    const ord = (this.orders || []).find(o => o.orderId === orderId);
+    if (!ord) {
+      alert("تعذر العثور على بيانات هذا الطلب.");
+      return;
+    }
+
+    const modal = document.getElementById("invoiceModal");
+    if (!modal) return;
+
+    // Status map
+    const statusMap = {
+      new: { label: "طلب جديد 🟢", bg: "bg-emerald-100 text-emerald-900 border-emerald-300" },
+      processing: { label: "قيد التجهيز 🟡", bg: "bg-amber-100 text-amber-900 border-amber-300" },
+      shipped: { label: "تم الشحن 🚚", bg: "bg-sky-100 text-sky-900 border-sky-300" },
+      completed: { label: "مكتمل ومسلّم ✅", bg: "bg-emerald-100 text-emerald-900 border-emerald-300" },
+      cancelled: { label: "ملغي ❌", bg: "bg-red-100 text-red-900 border-red-300" }
+    };
+    const curStatus = ord.status || 'new';
+    const stInfo = statusMap[curStatus] || statusMap.new;
+
+    const elBadge = document.getElementById("invModalStatusBadge");
+    if (elBadge) {
+      elBadge.textContent = stInfo.label;
+      elBadge.className = `inline-block px-3 py-1 font-bold rounded-lg text-xs border ${stInfo.bg}`;
+    }
+
+    const elNum = document.getElementById("invModalOrderNumber");
+    if (elNum) elNum.textContent = `#${ord.orderId}`;
+
+    const elDate = document.getElementById("invModalDate");
+    if (elDate) {
+      elDate.textContent = ord.formattedDate || (ord.createdAt ? new Date(ord.createdAt).toLocaleDateString("ar-EG", { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleDateString("ar-EG"));
+    }
+
+    const elName = document.getElementById("invModalCustomerName");
+    if (elName) elName.textContent = ord.customer?.fullName || "-";
+
+    const elPhone = document.getElementById("invModalCustomerPhone");
+    if (elPhone) elPhone.textContent = ord.customer?.phone || "-";
+
+    const elAddr = document.getElementById("invModalCustomerAddress");
+    if (elAddr) elAddr.textContent = ord.customer?.address || "-";
+
+    const elNotes = document.getElementById("invModalCustomerNotes");
+    if (elNotes) {
+      elNotes.textContent = ord.customer?.notes ? `ملاحظات العميل: "${ord.customer.notes}"` : "";
+    }
+
+    const elPay = document.getElementById("invModalPaymentMethod");
+    if (elPay) elPay.textContent = ord.paymentMethod || "الدفع عند الاستلام";
+
+    // Items table
+    const tableBody = document.getElementById("invModalItemsTableBody");
+    if (tableBody) {
+      tableBody.innerHTML = (ord.items || []).map(it => {
+        const qty = Number(it.quantity) || 1;
+        const uPrice = Number(it.unitPrice) || 0;
+        const total = qty * uPrice;
+        return `
+          <tr class="border-b border-neutral-200">
+            <td class="p-2.5 font-bold text-neutral-900 font-serif">${escapeHtml(it.name)}</td>
+            <td class="p-2.5 text-center font-mono text-neutral-600">${escapeHtml(it.size)}</td>
+            <td class="p-2.5 text-center font-mono font-bold text-amber-900">${qty}</td>
+            <td class="p-2.5 text-left font-mono text-neutral-700">${uPrice.toLocaleString()} ج.م</td>
+            <td class="p-2.5 text-left font-mono font-bold text-neutral-900">${total.toLocaleString()} ج.م</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Totals
+    const subtotal = Number(ord.totals?.subtotal) || 0;
+    const delivery = Number(ord.totals?.delivery) || 0;
+    const discount = Number(ord.totals?.discount) || 0;
+    const grandTotal = Number(ord.totals?.grandTotal) || (subtotal + delivery - discount);
+
+    const elSub = document.getElementById("invModalSubtotal");
+    if (elSub) elSub.textContent = `${subtotal.toLocaleString()} ج.م`;
+
+    const elDel = document.getElementById("invModalDelivery");
+    if (elDel) elDel.textContent = `${delivery.toLocaleString()} ج.م`;
+
+    const elDiscRow = document.getElementById("invModalDiscountRow");
+    const elDisc = document.getElementById("invModalDiscount");
+    if (discount > 0 && elDiscRow && elDisc) {
+      elDiscRow.classList.remove("hidden");
+      elDisc.textContent = `-${discount.toLocaleString()} ج.م`;
+    } else if (elDiscRow) {
+      elDiscRow.classList.add("hidden");
+    }
+
+    const elGrand = document.getElementById("invModalGrandTotal");
+    if (elGrand) elGrand.textContent = `${grandTotal.toLocaleString()} ج.م`;
+
+    modal.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons({ root: modal });
+  },
+
+  closeInvoiceModal() {
+    const modal = document.getElementById("invoiceModal");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  printInvoice() {
+    window.print();
+  },
+
+  async deleteOrder(orderId) {
+    if (!confirm(`هل أنت متأكد من حذف الطلب رقم #${orderId} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+      return;
+    }
+    try {
+      if (window.SupabaseDB && SupabaseDB.isReady()) {
+        await SupabaseDB.deleteOrder(orderId);
+      }
+      Storage.deleteOrder(orderId);
+      this.showToast("تم حذف الطلب", `تم حذف الطلب رقم #${orderId} من النظام والسحابة بنجاح.`, "info");
+      await this.loadOrders();
+    } catch (err) {
+      console.error("Delete order error:", err);
+      alert("خطأ أثناء حذف الطلب: " + err.message);
+    }
+  },
+
+  // --- Live Centralized Inventory Section ---
+  renderInventorySection() {
+    const products = this.currentProducts || [];
+    const tbody = document.getElementById("adminInventoryTableBody");
+    if (!tbody) return;
+
+    let totalUnits = 0;
+    let inStockCount = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    let totalValue = 0;
+    const lowStockList = [];
+
+    products.forEach(p => {
+      const stock = Number(p.stock) || 0;
+      totalUnits += stock;
+      const price50 = (p.sizes && p.sizes["50ml"] ? Number(p.sizes["50ml"].price) : (Number(p.price) || 250));
+      totalValue += (stock * price50);
+
+      if (stock > 10) {
+        inStockCount++;
+      } else if (stock > 0) {
+        lowStockCount++;
+        lowStockList.push({ name: p.name, stock });
+      } else {
+        outOfStockCount++;
+        lowStockList.push({ name: p.name, stock: 0 });
+      }
+    });
+
+    const elTotalUnits = document.getElementById("invTotalUnits");
+    const elInStock = document.getElementById("invInStockCount");
+    const elLowStock = document.getElementById("invLowStockCount");
+    const elTotalValue = document.getElementById("invTotalValue");
+    const elBadge = document.getElementById("adminInventoryAlertBadge");
+    const banner = document.getElementById("invLowStockAlertBanner");
+    const alertListEl = document.getElementById("invLowStockAlertList");
+
+    if (elTotalUnits) elTotalUnits.textContent = totalUnits.toLocaleString();
+    if (elInStock) elInStock.textContent = inStockCount;
+    if (elLowStock) elLowStock.textContent = (lowStockCount + outOfStockCount);
+    if (elTotalValue) elTotalValue.textContent = `${totalValue.toLocaleString()} ج.م`;
+
+    const totalCritical = lowStockCount + outOfStockCount;
+    if (elBadge) {
+      if (totalCritical > 0) {
+        elBadge.textContent = `${totalCritical} تنبيه نقص`;
+        elBadge.classList.remove("hidden");
+      } else {
+        elBadge.classList.add("hidden");
+      }
+    }
+
+    if (banner && alertListEl) {
+      if (lowStockList.length > 0) {
+        alertListEl.innerHTML = lowStockList.map(item => 
+          `<span class="inline-block ml-3">⚠️ <strong>${escapeHtml(item.name)}</strong> (متبقي: <span class="font-mono font-bold text-amber-300">${item.stock}</span> قنينة)</span>`
+        ).join("");
+        banner.classList.remove("hidden");
+      } else {
+        banner.classList.add("hidden");
+      }
+    }
+
+    // Render Table rows
+    let rowsHtml = "";
+    products.forEach(p => {
+      const stock = Number(p.stock) || 0;
+      const safeId = escapeHtml(p.id);
+      const safeName = escapeHtml(p.name);
+      const safeSubtitle = escapeHtml(p.subtitle || "");
+      const safeImage = sanitizeImageUrl(p.image);
+      const isWomen = p.podium === "women";
+      const podiumLabel = isWomen ? "🌸 حريمي" : "👑 رجالي";
+      
+      const p30 = p.sizes?.['30ml']?.price ?? 170;
+      const p50 = p.sizes?.['50ml']?.price ?? 250;
+      const p100 = p.sizes?.['100ml']?.price ?? 420;
+
+      let statusBadge = "";
+      if (stock === 0) {
+        statusBadge = `<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-500/15 text-red-400 border border-red-500/30">نفذت الكمية 🚫</span>`;
+      } else if (stock <= 5) {
+        statusBadge = `<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">مخزون حرج (${stock}) ⚠️</span>`;
+      } else {
+        statusBadge = `<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">متوفر بوفرة (${stock}) ✅</span>`;
+      }
+
+      rowsHtml += `
+        <tr class="hover:bg-obsidian-950/40 transition">
+          <td class="p-4">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-14 rounded-lg bg-obsidian-950 border border-neutral-800 p-1 flex items-center justify-center flex-shrink-0">
+                <img src="${safeImage}" alt="${safeName}" class="max-w-full max-h-full object-contain rounded">
+              </div>
+              <div>
+                <h5 class="font-amiri font-bold text-cream-100 text-sm">${safeName}</h5>
+                <p class="text-[11px] text-neutral-400 mt-0.5">${podiumLabel} • ${safeSubtitle}</p>
+              </div>
+            </div>
+          </td>
+          <td class="p-4 font-mono text-neutral-300 text-xs">
+            <span class="text-neutral-500 text-[10px]">30ml:</span> <strong class="text-cream-200">${p30}</strong> | 
+            <span class="text-gold-400 text-[10px]">50ml:</span> <strong class="text-gold-400">${p50}</strong> | 
+            <span class="text-neutral-500 text-[10px]">100ml:</span> <strong class="text-cream-200">${p100}</strong> ج.م
+          </td>
+          <td class="p-4 text-center">
+            ${statusBadge}
+          </td>
+          <td class="p-4 text-center">
+            <span class="font-mono text-base font-bold text-gold-400">${stock}</span>
+            <span class="text-[10px] text-neutral-500 block">قنينة متاحة</span>
+          </td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-1.5" dir="ltr">
+              <button type="button" class="inv-quick-delta-btn px-2.5 py-1 bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white border border-red-500/30 rounded-lg text-xs font-mono font-bold transition cursor-pointer" data-id="${safeId}" data-delta="-1" title="خصم قنينة واحدة">-1</button>
+              <button type="button" class="inv-quick-delta-btn px-2.5 py-1 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500 hover:text-white border border-emerald-500/30 rounded-lg text-xs font-mono font-bold transition cursor-pointer" data-id="${safeId}" data-delta="1" title="إضافة قنينة واحدة">+1</button>
+              <button type="button" class="inv-quick-delta-btn px-2.5 py-1 bg-gold-500/15 text-gold-300 hover:bg-gold-500 hover:text-obsidian-950 border border-gold-500/40 rounded-lg text-xs font-mono font-bold transition cursor-pointer" data-id="${safeId}" data-delta="5" title="إضافة 5 قناني">+5</button>
+            </div>
+          </td>
+          <td class="p-4 text-left pl-6">
+            <div class="flex items-center justify-start gap-2" dir="ltr">
+              <input type="number" min="0" value="${stock}" class="inv-direct-stock-input w-16 bg-obsidian-950 border border-neutral-700 focus:border-gold-500 text-center text-xs font-mono font-bold text-cream-100 rounded-lg py-1 px-1.5" data-id="${safeId}" />
+              <button type="button" class="inv-set-stock-btn px-3 py-1 bg-neutral-800 hover:bg-gold-500 hover:text-obsidian-950 text-neutral-300 rounded-lg text-xs font-bold transition border border-neutral-700 cursor-pointer" data-id="${safeId}">
+                حفظ
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+
+    // Attach listeners
+    tbody.querySelectorAll(".inv-quick-delta-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const delta = parseInt(btn.getAttribute("data-delta"), 10) || 0;
+        await this.handleQuickStockChange(id, delta);
+      });
+    });
+
+    tbody.querySelectorAll(".inv-set-stock-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const row = btn.closest("tr");
+        const input = row?.querySelector(`.inv-direct-stock-input[data-id="${id}"]`);
+        if (input) {
+          const val = parseInt(input.value, 10);
+          await this.handleSetDirectStock(id, val);
+        }
+      });
+    });
+
+    if (window.lucide) lucide.createIcons({ root: tbody });
+  },
+
+  async handleQuickStockChange(productId, delta) {
+    const prod = this.currentProducts.find(p => p.id === productId);
+    if (!prod) return;
+
+    const curStock = Number(prod.stock) || 0;
+    const newStock = Math.max(0, curStock + delta);
+
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      await SupabaseDB.updatePerfumeStock(productId, newStock);
+    }
+    Storage.updateStock(productId, newStock);
+
+    prod.stock = newStock;
+    this.renderInventorySection();
+    this.renderStats();
+    this.renderProductsList();
+    this.showToast("تم تحديث المخزون 📦", `تم ضبط مخزون "${prod.name}" إلى ${newStock} قنينة.`, "success");
+  },
+
+  async handleSetDirectStock(productId, newStock) {
+    const prod = this.currentProducts.find(p => p.id === productId);
+    if (!prod) return;
+
+    if (isNaN(newStock) || newStock < 0) {
+      alert("يرجى إدخال رقم صحيح للمخزون (0 أو أكبر)");
+      return;
+    }
+
+    if (window.SupabaseDB && SupabaseDB.isReady()) {
+      await SupabaseDB.updatePerfumeStock(productId, newStock);
+    }
+    Storage.updateStock(productId, newStock);
+
+    prod.stock = newStock;
+    this.renderInventorySection();
+    this.renderStats();
+    this.renderProductsList();
+    this.showToast("تم تحديث المخزون 📦", `تم حفظ مخزون "${prod.name}" إلى ${newStock} قنينة.`, "success");
   },
 
   loadPaymentSettings() {

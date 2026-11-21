@@ -408,7 +408,29 @@ const Checkout = {
           CloudDB.submitOrder(orderData).catch(e => console.warn("Cloud order submission sync:", e));
         }
 
-        // 3. Save to local storage cache
+        // 3. Deduct purchased inventory in real-time from Supabase PostgreSQL & Storage
+        try {
+          if (Array.isArray(orderData.items)) {
+            for (const item of orderData.items) {
+              const pId = item.productId || item.id;
+              if (pId) {
+                const prod = Storage.getProductById(pId);
+                if (prod && typeof prod.stock === "number") {
+                  const newQty = Math.max(0, prod.stock - (Number(item.quantity) || 1));
+                  if (window.SupabaseDB && SupabaseDB.isReady()) {
+                    SupabaseDB.updatePerfumeStock(pId, newQty).catch(e => console.warn("Stock deduction note:", e));
+                  } else {
+                    Storage.updateStock(pId, newQty);
+                  }
+                }
+              }
+            }
+          }
+        } catch (stockErr) {
+          console.warn("Stock deduction note:", stockErr);
+        }
+
+        // 4. Save to local storage cache
         Storage.saveOrder(orderData);
         this.lastOrderTime = Date.now();
         this.currentOrder = orderData;

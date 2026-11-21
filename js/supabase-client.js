@@ -201,6 +201,30 @@ const SupabaseDB = {
     }
   },
 
+  async updatePerfumeStock(perfumeId, newStock) {
+    const cleanStock = Math.max(0, parseInt(newStock) || 0);
+    Storage.updateStock(perfumeId, cleanStock);
+
+    if (!this.isReady()) {
+      return { success: true, stock: cleanStock, cloud: false };
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('perfumes')
+        .update({ stock: cleanStock, updated_at: new Date().toISOString() })
+        .eq('id', perfumeId)
+        .select('id, stock')
+        .single();
+
+      if (error) throw error;
+      return { success: true, stock: data ? data.stock : cleanStock, cloud: true };
+    } catch (err) {
+      console.error("Supabase updatePerfumeStock error:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
   // --- Orders & Checkout (Anti-Price-Tampering & Atomic Server Verification) ---
   async createOrder(orderPayload) {
     if (!this.isReady()) {
@@ -414,6 +438,27 @@ const SupabaseDB = {
       return { success: true, cloud: true };
     } catch (err) {
       console.error("Supabase updateOrderStatus error:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async deleteOrder(orderId) {
+    Storage.deleteOrder(orderId);
+
+    if (!this.isReady()) {
+      return { success: true, cloud: false };
+    }
+
+    try {
+      const { error } = await this.client
+        .from('orders')
+        .delete()
+        .or(`order_number.eq.${orderId},id.eq.${orderId}`);
+
+      if (error) throw error;
+      return { success: true, cloud: true };
+    } catch (err) {
+      console.error("Supabase deleteOrder error:", err);
       return { success: false, error: err.message };
     }
   },

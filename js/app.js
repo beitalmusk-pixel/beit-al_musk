@@ -706,7 +706,9 @@ class LuxuryApp {
     if (badgeTagEl) badgeTagEl.textContent = product.badge || "عطر ملكي فاخر";
 
     if (stockEl) {
-      if (product.stock <= 5) {
+      if (product.stock === 0) {
+        stockEl.innerHTML = `🚫 <span class="text-red-400 font-bold">نفذت الكمية بالكامل — سيتوفر قريباً</span>`;
+      } else if (product.stock <= 5) {
         stockEl.innerHTML = `⚠️ <span class="text-amber-400 font-semibold">إصدار نادر — متبقي ${product.stock} قوارير فقط</span>`;
       } else {
         stockEl.innerHTML = `⚜️ <span class="text-emerald-400 font-semibold">متوفر في المعمل (${product.stock} زجاجة جاهزة للتسليم)</span>`;

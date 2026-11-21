@@ -505,6 +505,25 @@ const Storage = {
     return order;
   },
 
+  deleteOrder(orderId) {
+    const orders = this.getOrders().filter(o => o.orderId !== orderId && o.id !== orderId);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    window.dispatchEvent(new CustomEvent("orders:updated", { detail: { orders } }));
+    return true;
+  },
+
+  updateStock(productId, newStock) {
+    const products = this.getProducts();
+    const p = products.find(prod => prod.id === productId);
+    if (p) {
+      p.stock = Math.max(0, parseInt(newStock) || 0);
+      this.saveProducts(products);
+      window.dispatchEvent(new CustomEvent("products:updated", { detail: { products } }));
+      return p;
+    }
+    return null;
+  },
+
   getLastOrder() {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.LAST_ORDER);
