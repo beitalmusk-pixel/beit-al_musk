@@ -126,22 +126,33 @@ class PerfumeShowroom {
     this.camera.position.set(0, 2.2, this.targetDistance);
     this.camera.lookAt(this.targetCenter);
 
-    // 3. Renderer
+    // 3. Renderer (High-Speed Optimized)
     this.renderer = new THREE.WebGLRenderer({
       antialias: !isMobile, // optimize performance on mobile
       alpha: true,
       powerPreference: "high-performance"
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.0 : 1.25));
+    this.renderer.shadowMap.enabled = !isMobile;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
 
     this.container.appendChild(this.renderer.domElement);
 
-    // 3.5 Photorealistic Studio Environment Reflections
+    // 3.5 Viewport Visibility Observer (pause rendering when scrolled away!)
+    this.isVisible = true;
+    if ('IntersectionObserver' in window && this.container) {
+      this.observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          this.isVisible = entry.isIntersecting;
+        });
+      }, { threshold: 0.05 });
+      this.observer.observe(this.container);
+    }
+
+    // 3.6 Photorealistic Studio Environment Reflections
     try {
       this.scene.environment = this.createShowroomEnvMap(this.renderer);
     } catch (e) {
@@ -164,7 +175,7 @@ class PerfumeShowroom {
     // Default select first perfume
     setTimeout(() => {
       this.selectBottle(0, false);
-    }, 400);
+    }, 200);
   }
 
   buildShowroomEnvironment() {
@@ -601,8 +612,8 @@ class PerfumeShowroom {
     this.mainSpotlight.decay = 1.4;
     this.mainSpotlight.distance = 25;
     this.mainSpotlight.castShadow = true;
-    this.mainSpotlight.shadow.mapSize.width = 1024;
-    this.mainSpotlight.shadow.mapSize.height = 1024;
+    this.mainSpotlight.shadow.mapSize.width = 512;
+    this.mainSpotlight.shadow.mapSize.height = 512;
     this.mainSpotlight.shadow.camera.near = 1;
     this.mainSpotlight.shadow.camera.far = 20;
     this.mainSpotlight.shadow.bias = -0.001;
@@ -621,7 +632,7 @@ class PerfumeShowroom {
   }
 
   createFloatingGoldDust() {
-    const particleCount = 220;
+    const particleCount = 50;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const scales = new Float32Array(particleCount);
@@ -728,28 +739,28 @@ class PerfumeShowroom {
     pmremGenerator.compileEquirectangularShader();
 
     const envCanvas = document.createElement("canvas");
-    envCanvas.width = 512;
-    envCanvas.height = 256;
+    envCanvas.width = 256;
+    envCanvas.height = 128;
     const ctx = envCanvas.getContext("2d");
 
     // Studio lighting gradient background
-    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    const grad = ctx.createLinearGradient(0, 0, 0, 128);
     grad.addColorStop(0, "#191522");
     grad.addColorStop(0.42, "#2b2136");
     grad.addColorStop(0.50, "#8a6a26");
     grad.addColorStop(0.53, "#1a1622");
     grad.addColorStop(1, "#07060a");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 512, 256);
+    ctx.fillRect(0, 0, 256, 128);
 
     // Studio softbox highlights (white/warm diffuse strips)
     ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    ctx.fillRect(60, 30, 90, 110);
-    ctx.fillRect(340, 40, 80, 100);
+    ctx.fillRect(30, 15, 45, 55);
+    ctx.fillRect(170, 20, 40, 50);
 
     // Warm golden fill light strip
     ctx.fillStyle = "rgba(235, 195, 120, 0.65)";
-    ctx.fillRect(200, 60, 75, 75);
+    ctx.fillRect(100, 30, 38, 38);
 
     const tex = new THREE.CanvasTexture(envCanvas);
     tex.mapping = THREE.EquirectangularReflectionMapping;
@@ -1752,6 +1763,7 @@ class PerfumeShowroom {
 
   animate() {
     requestAnimationFrame(this.animate);
+    if (!this.isVisible || document.hidden) return;
 
     // Auto-spin the circular turntables ("والدايره بتلف")
     if (this.autoRotate && !this.isDragging) {

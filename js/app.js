@@ -74,54 +74,11 @@ class LuxuryApp {
     this.init();
   }
 
-  async init() {
-    // 1. Initialize Supabase PostgreSQL & Auth if configured
-    if (window.SupabaseDB) {
-      try {
-        const supabaseReady = await SupabaseDB.init();
-        if (supabaseReady) {
-          await SupabaseDB.fetchSettings();
-          await SupabaseDB.fetchPerfumes();
-          await SupabaseDB.fetchCoupons();
-          SupabaseDB.subscribeToPerfumes((updatedProds) => {
-            this.renderCollectionGrid();
-            this.renderMobileBottleCarousel();
-          });
-        }
-      } catch (e) {
-        console.warn("SupabaseDB init note:", e);
-      }
-    }
-
-    // 2. Initialize Firebase as secondary cloud layer
-    if (window.CloudDB) {
-      try {
-        const cloudReady = await CloudDB.init();
-        if (cloudReady) {
-          await CloudDB.fetchSettings();
-          await CloudDB.fetchProducts();
-          CloudDB.listenToProducts((updatedProds) => {
-            this.renderCollectionGrid();
-            this.renderMobileBottleCarousel();
-          });
-        }
-      } catch (e) {
-        console.warn("CloudDB init note:", e);
-      }
-    }
-
+  init() {
+    // 1. Instant Synchronous UI Paint from Local Storage Cache (0ms First Contentful Paint)
     if (window.CartUI) CartUI.init();
     if (window.Checkout) Checkout.init();
     if (window.Admin) Admin.init();
-
-    const showroomContainer = document.getElementById("threeCanvasContainer");
-    if (showroomContainer && window.PerfumeShowroom) {
-      try {
-        this.showroom = new PerfumeShowroom("threeCanvasContainer");
-      } catch (err) {
-        console.warn("Three.js WebGL initialization fallback:", err);
-      }
-    }
 
     this.renderCollectionGrid();
     this.renderMobileBottleCarousel();
@@ -136,6 +93,71 @@ class LuxuryApp {
 
     if (window.lucide) {
       lucide.createIcons();
+    }
+
+    // 2. Defer 3D Showroom initialization slightly (50ms) so DOM paints cleanly first
+    setTimeout(() => {
+      this.initShowroom();
+    }, 50);
+
+    // 3. Silent background cloud sync (Supabase PostgreSQL) without blocking page entry or user interaction
+    this.syncCloudInBackground();
+  }
+
+  initShowroom() {
+    const showroomContainer = document.getElementById("threeCanvasContainer");
+    if (showroomContainer && window.PerfumeShowroom) {
+      try {
+        this.showroom = new PerfumeShowroom("threeCanvasContainer");
+      } catch (err) {
+        console.warn("Three.js WebGL initialization fallback:", err);
+      }
+    }
+  }
+
+  async syncCloudInBackground() {
+    // Initialize Supabase PostgreSQL in background
+    if (window.SupabaseDB) {
+      try {
+        const supabaseReady = await SupabaseDB.init();
+        if (supabaseReady) {
+          await Promise.allSettled([
+            SupabaseDB.fetchSettings(),
+            SupabaseDB.fetchPerfumes(),
+            SupabaseDB.fetchCoupons()
+          ]);
+          this.renderCollectionGrid();
+          this.renderMobileBottleCarousel();
+          this.updateStoreDiscountBanner();
+          SupabaseDB.subscribeToPerfumes((updatedProds) => {
+            this.renderCollectionGrid();
+            this.renderMobileBottleCarousel();
+          });
+        }
+      } catch (e) {
+        console.warn("Supabase background sync note:", e);
+      }
+    }
+
+    // Secondary CloudDB sync if configured
+    if (window.CloudDB && typeof CloudDB.isConfigured === 'function' && CloudDB.isConfigured()) {
+      try {
+        const cloudReady = await CloudDB.init();
+        if (cloudReady) {
+          await Promise.allSettled([
+            CloudDB.fetchSettings(),
+            CloudDB.fetchProducts()
+          ]);
+          this.renderCollectionGrid();
+          this.renderMobileBottleCarousel();
+          CloudDB.listenToProducts((updatedProds) => {
+            this.renderCollectionGrid();
+            this.renderMobileBottleCarousel();
+          });
+        }
+      } catch (e) {
+        console.warn("CloudDB background sync note:", e);
+      }
     }
   }
 

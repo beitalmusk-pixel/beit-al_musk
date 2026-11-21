@@ -3,8 +3,6 @@
    Luxury E-Commerce Design System (Mobile-First & RTL Luxury Edition)
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@300;400;500;600;700;800;900&family=Cinzel:wght@400;600;700;900&family=Tajawal:wght@300;400;500;700;800&family=Cormorant+Garamond:wght@400;600;700&display=swap');
-
 :root {
   --color-obsidian-950: #060508;
   --color-obsidian-900: #0d0c12;
