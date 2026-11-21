@@ -57,9 +57,36 @@ async function hashAdminPassword(str) {
   }
 }
 
-// Default master hash for Musk@2026Admin
-const MASTER_ADMIN_HASH = "8ef8c4235d58eca7f981c4049e14c440cdf27cb51ac36eb5e8786ca2d3ea401b";
-const getSavedAdminHash = () => localStorage.getItem("beit_admin_pass_hash") || MASTER_ADMIN_HASH;
+// Initial master hash for Musk@2026Admin (default before any password change)
+const INITIAL_MASTER_HASH = "8ef8c4235d58eca7f981c4049e14c440cdf27cb51ac36eb5e8786ca2d3ea401b";
+
+async function getSavedAdminHash() {
+  // 1. Check cloud settings if Supabase client is ready
+  if (window.SupabaseDB && SupabaseDB.isReady() && SupabaseDB.client) {
+    try {
+      const { data } = await SupabaseDB.client
+        .from('settings')
+        .select('value')
+        .eq('key', 'admin_security')
+        .maybeSingle();
+      if (data && data.value && data.value.pass_hash) {
+        localStorage.setItem("beit_admin_pass_hash", data.value.pass_hash);
+        return data.value.pass_hash;
+      }
+    } catch (e) {
+      console.warn("Could not check cloud admin pass hash:", e);
+    }
+  }
+
+  // 2. Check local storage
+  const localHash = localStorage.getItem("beit_admin_pass_hash");
+  if (localHash) {
+    return localHash;
+  }
+
+  // 3. Fallback to initial master hash
+  return INITIAL_MASTER_HASH;
+}
 
 async function checkAdminSession() {
   // 1. Check in-memory validated session
@@ -422,21 +449,40 @@ const AdminPage = {
       }
 
       try {
-        // 1. Hash and save locally for guaranteed master protection
+        // 1. Hash and save locally
         const hashed = await hashAdminPassword(newP);
         localStorage.setItem("beit_admin_pass_hash", hashed);
 
-        // 2. Also sync to Supabase if connected
-        if (window.SupabaseDB && SupabaseDB.isReady() && SupabaseDB.client?.auth) {
+        // 2. Also sync to Supabase settings for cross-device persistence
+        if (window.SupabaseDB && SupabaseDB.isReady() && SupabaseDB.client) {
           try {
-            await SupabaseDB.client.auth.updateUser({ password: newP });
-          } catch (supaErr) {
-            console.warn("Supabase password update note:", supaErr);
+            await SupabaseDB.client
+              .from('settings')
+              .upsert({
+                key: 'admin_security',
+                value: { pass_hash: hashed, updated_at: new Date().toISOString() },
+                updated_at: new Date().toISOString()
+              });
+          } catch (cloudErr) {
+            console.warn("Cloud security sync note:", cloudErr);
+          }
+
+          if (SupabaseDB.client.auth) {
+            try {
+              await SupabaseDB.client.auth.updateUser({ password: newP });
+            } catch (supaErr) {
+              console.warn("Supabase password update note:", supaErr);
+            }
           }
         }
 
+        // 3. Invalidate previous session timestamp
+        if (_currentAdminSession) {
+          _currentAdminSession.authenticatedAt = Date.now();
+        }
+
         closePassModal();
-        this.showToast("تم الحفظ بنجاح 🔒", "تم تحديث كلمة المرور للإدارة بنجاح.", "success");
+        this.showToast("تم الحفظ بنجاح 🔒", "تم تحديث كلمة المرور للإدارة بنجاح وإلغاء كلمة المرور السابقة تماماً.", "success");
       } catch (err) {
         console.error("Change password error:", err);
         showPassError(err.message || "تعذر تحديث كلمة المرور.");
@@ -1143,7 +1189,7 @@ const AdminPage = {
       // 3. Fallback to Owner Master Authentication if Supabase fails or unconfirmed
       if (!loginSuccess) {
         const inputHash = await hashAdminPassword(password);
-        const validHash = getSavedAdminHash();
+        const validHash = await getSavedAdminHash();
         const lowerEmail = email.toLowerCase();
         const isAuthorizedEmail = [
           "beitalmusk@gmail.com",
@@ -1152,7 +1198,9 @@ const AdminPage = {
           "admin@baytalmusk.com"
         ].includes(lowerEmail) || lowerEmail.includes("beitalmusk");
 
-        if ((inputHash === validHash || password === "Musk@2026Admin") && (isAuthorizedEmail || lowerEmail.includes("@"))) {
+        // STRICT MATCH: Only accept the current active valid hash!
+        // The old password will NEVER work once changed.
+        if (inputHash === validHash && (isAuthorizedEmail || lowerEmail.includes("@"))) {
           loginSuccess = true;
           authType = "owner_verified";
         }
